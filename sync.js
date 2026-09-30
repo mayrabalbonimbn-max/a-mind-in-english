@@ -1,0 +1,1 @@
+public/sync.js

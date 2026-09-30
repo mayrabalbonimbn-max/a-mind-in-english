@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String             @id @default(uuid())
+  email        String             @unique
+  passwordHash String
+  name         String?
+  isDemo       Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  sessions     Session[]
+  documents    UserDocument[]
+  conflicts    DocumentConflict[]
+  learningReviewState LearningReviewState?
+  learningReviewRuns  LearningReviewRun[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ipAddress String?
+  userAgent String?
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model UserDocument {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key       String
+  data      Json
+  revision  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId])
+  @@map("user_documents")
+}
+
+model DocumentConflict {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key        String
+  clientData Json
+  clientRev  Int
+  serverData Json
+  serverRev  Int
+  resolved   Boolean   @default(false)
+  resolvedAt DateTime?
+  resolution String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, key])
+  @@map("document_conflicts")
+}
+
+/// Nightly Learning Review: one row per learner. Holds the evidence boundary (fingerprints of what
+/// was already analysed: ids + hashes, never text), the small accumulated pattern state, and a
+/// lease so that only one run (button or scheduler, any process) can analyse a given interval.
+model LearningReviewState {
+  userId              String    @id
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analysed            Json      @default("{}")
+  patterns            Json      @default("[]")
+  lastSuccessfulRunId String?
+  leaseRunId          String?
+  leaseExpiresAt      DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("learning_review_state")
+}
+
+/// One execution that found new evidence. A failed run never touches the state, so the
+/// previous report stays the current one.
+model LearningReviewRun {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trigger       String
+  status        String
+  fromRunId     String?
+  fromAt        DateTime?
+  toAt          DateTime
+  docRevisions  Json
+  evidenceIds   Json
+  deferredCount Int       @default(0)
+  model         String
+  reasoning     String
+  promptVersion String
+  errorCode     String?
+  report        Json?
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+
+  @@index([userId, startedAt])
+  @@map("learning_review_runs")
+}
