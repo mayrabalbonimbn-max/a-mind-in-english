@@ -44,7 +44,11 @@
     study.activeSession = null;
     const start = ms(a.startedAt), end = Math.max(start, endMs);
     const seconds = Math.floor((end - start) / 1000);
-    if (seconds < MIN_SESSION_SECONDS) return null;
+    if (seconds < MIN_SESSION_SECONDS) {
+      // Accidental sessions do not count as study, but still cannot be resurrected.
+      study.finalizedIds = [...new Set([...(study.finalizedIds || []), a.id])];
+      return null;
+    }
     const s = { id: a.id, startedAt: a.startedAt, endedAt: iso(end), durationSeconds: seconds, endReason: reason };
     study.sessions.push(s);
     return s;
@@ -72,7 +76,7 @@
       const reason = end === seen && stale ? 'stale' : 'unconfirmed';
       return { closed: close(study, end, reason), reason, uncountedSeconds: Math.floor((now - end) / 1000) };
     }
-    if (heartbeat) a.lastSeenAt = iso(now);
+    if (heartbeat) a.lastSeenAt = iso(Math.max(now, seen));
     return null;
   }
 
@@ -153,26 +157,24 @@
       if (!s || !s.startedAt) continue;
       const id = s.id || `${s.startedAt}|${s.endedAt}`;
       const prev = byId.get(id);
-      if (!prev || (ms(s.endedAt) || 0) > (ms(prev.endedAt) || 0)) byId.set(id, s);
+      if (!prev || (ms(s.endedAt) || 0) < (ms(prev.endedAt) || 0)) byId.set(id, s);
     }
-    // A device that reopened with an old copy may have ended a session another device kept alive:
-    // an automatic end is undone when the other copy was seen alive later. A manual Pause always stands.
-    for (const x of [a.activeSession, b.activeSession]) {
-      const closed = x && x.id && byId.get(x.id);
-      if (closed && closed.endReason && closed.endReason !== 'manual' && lastSeen(x) > (ms(closed.endedAt) || 0)) byId.delete(x.id);
-    }
+    // Finalized sessions are terminal, including stale/unconfirmed/superseded ends.
     const out = { activeSession: null, sessions: [] };
-    const actives = [a.activeSession, b.activeSession].filter(x => x && x.id && !byId.has(x.id));
+    const finalizedIds = [...new Set([...(a.finalizedIds || []), ...(b.finalizedIds || [])])].sort();
+    if (finalizedIds.length) out.finalizedIds = finalizedIds;
+    const actives = [a.activeSession, b.activeSession].filter(x => x && x.id && !byId.has(x.id) && !finalizedIds.includes(x.id));
     if (actives.length === 2 && actives[0].id === actives[1].id) {
       const [x, y] = actives;
       out.activeSession = Object.assign({}, x, { lastSeenAt: iso(Math.max(lastSeen(x), lastSeen(y))), confirmedAt: iso(Math.max(confirmedAt(x), confirmedAt(y))) });
     } else if (actives.length) {
-      actives.sort((x, y) => lastSeen(y) - lastSeen(x));
+      actives.sort((x, y) => lastSeen(y) - lastSeen(x) || String(x.id).localeCompare(String(y.id)));
       out.activeSession = actives[0];
       for (const other of actives.slice(1)) {
         const tmp = { activeSession: other, sessions: [] };
         const s = close(tmp, lastSeen(other), 'superseded');
         if (s) byId.set(s.id, s);
+        else if (tmp.finalizedIds) out.finalizedIds = [...new Set([...(out.finalizedIds || []), ...tmp.finalizedIds])].sort();
       }
     }
     out.sessions = [...byId.values()].sort((x, y) => (ms(x.startedAt) || 0) - (ms(y.startedAt) || 0));

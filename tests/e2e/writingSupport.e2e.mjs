@@ -54,7 +54,7 @@ const text = p => p.eval(`document.querySelector('#main').innerText`);
 
 
 const click = (p, sel) => p.eval(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
-const local = p => p.eval(`JSON.parse(localStorage.getItem('klang.mind.v1'))`);
+const local = p => p.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1')))`);
 const ctl = (k) => `[data-wsupw="${k}"]`;
 const state = (p, k) => p.eval(`(() => { const w = document.querySelector('${ctl(k)}'); if (!w) return null; const d = w.querySelector('details.wsup'); return { pressed: [...w.querySelectorAll('.wslv-o[aria-pressed="true"]')].map(b => b.textContent), details: !!d, open: !!(d && d.open), level: d ? d.dataset.level : 'off', off: !!w.querySelector('.wsup-off') }; })()`);
 

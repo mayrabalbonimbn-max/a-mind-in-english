@@ -3,23 +3,31 @@
 (function () {
   'use strict';
   const DB = 'klang-private-recordings-v1', STORE = 'recordings';
-  function open() {
+  function open(name) {
     return new Promise((resolve, reject) => {
       if (!window.indexedDB) return reject(new Error('indexeddb_unavailable'));
-      const r = indexedDB.open(DB, 1);
+      const r = indexedDB.open(name, 1);
       r.onupgradeneeded = () => r.result.createObjectStore(STORE);
       r.onsuccess = () => resolve(r.result);
       r.onerror = () => reject(r.error || new Error('indexeddb_failed'));
     });
   }
   async function tx(mode, action) {
-    const db = await open();
+    const name = window.KLANG_OWNERSHIP.key(DB);
+    const db = await open(name);
+    try { window.KLANG_OWNERSHIP.assertCurrent(); } catch (e) { db.close(); throw e; }
     return new Promise((resolve, reject) => {
       const t = db.transaction(STORE, mode), s = t.objectStore(STORE), r = action(s);
-      r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
-      t.oncomplete = () => db.close(); t.onerror = () => reject(t.error);
+      let result;
+      r.onsuccess = () => { result = r.result; };
+      t.oncomplete = () => {
+        db.close();
+        try { window.KLANG_OWNERSHIP.assertCurrent(); resolve(result); } catch (e) { reject(e); }
+      };
+      t.onabort = t.onerror = () => { db.close(); reject(t.error || new Error('recording_transaction_failed')); };
     });
   }
+
   const put = (key, blob) => tx('readwrite', s => s.put(blob, key));
   const get = key => tx('readonly', s => s.get(key));
   const remove = key => tx('readwrite', s => s.delete(key));

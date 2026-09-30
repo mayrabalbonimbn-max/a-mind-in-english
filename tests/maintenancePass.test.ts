@@ -106,7 +106,7 @@ describe('Module Review · Timed essay id collision', () => {
     const s = a.state();
     expect(s.a['r1:m1tc1']).toBe(ESSAY_1);
     expect(s.a['r1:m1t1']).toBe('2');
-    expect(JSON.parse(a.storage.get('klang.mind.pending.v1') || '[]')).toContain('review:1');
+    expect(JSON.parse(a.storage.get(a.ctx.KLANG_OWNERSHIP.key('klang.mind.pending.v1')) || '[]')).toContain('review:1');
   });
 });
 
@@ -274,7 +274,7 @@ describe('Language Bank · retired', () => {
     const app = read('public/app.js');
     expect(app).toMatch(/const DEF = \{.*bank: \[\], errs: \[\]/);
     expect(app).toContain("['glossary', 'language-bank', 'error-log'");   // a restore still pushes old bank data
-    expect(app).toContain("const data = { app: 'a-mind-in-english', v: 1, saved: new Date().toISOString(), state: S }");
+    expect(app).toContain("const data = { app: 'a-mind-in-english', v: 1, ownerId: window.KLANG_OWNERSHIP.assertCurrent(), saved: new Date().toISOString(), state: S }");
   });
 });
 

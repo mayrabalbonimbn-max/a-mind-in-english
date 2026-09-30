@@ -75,8 +75,9 @@
 
   /* ── storage ─────────────────────────────── */
   const isDemo = () => !!(window.KLANG_AUTH && window.KLANG_AUTH.user && window.KLANG_AUTH.user.isDemo);
-  const SKEY = 'klang.mind.v1';
-  const DEMO_SKEY = 'klang.mind.demo.v1';
+  const SKEY = window.KLANG_OWNERSHIP.key('klang.mind.v1');
+  window.KLANG_SYNC?.prepare();
+  const DEMO_SKEY = window.KLANG_OWNERSHIP.key('klang.mind.demo.v1');
   // bank: the retired Language Bank. Never shown or written any more; kept so old data survives sync, backup and restore.
   const DEF = { a: {}, sec: {}, ud: {}, rd: {}, md: {}, gl: {}, glx: [], bm: [], bank: [], errs: [], pf: {}, sp: [], last: null, prefs: { fs: 19, w: 66 }, ca: [], lb: null, conversations: {}, study: { activeSession: null, sessions: [] }, learningJudgments: {} };
   const DEF_DEMO = {
@@ -91,6 +92,7 @@
   let storageOK = true;
 
   function activeStorage() {
+    window.KLANG_OWNERSHIP.assertCurrent();
     return isDemo() ? sessionStorage : localStorage;
   }
 
@@ -1280,22 +1282,26 @@
       <button class="btn rosa sm wide" data-act="backup">back up everything ↓</button>
       <button class="btn out sm wide" data-act="restore">restore a backup</button>
       <small>${when}</small>
+      ${window.KLANG_OWNERSHIP.hasLegacy() ? '<p>Older browser data has no verified account owner and is preserved separately. Download a recovery copy; restore it only after verifying it belongs to you.</p><button class="btn out sm wide" data-act="legacybackup">download unassigned recovery copy ↓</button>' : ''}
       <input type="file" id="bkfile" accept=".json,application/json" hidden></div>`;
   }
   function doBackup() {
-    const data = { app: 'a-mind-in-english', v: 1, saved: new Date().toISOString(), state: S };
+    const data = { app: 'a-mind-in-english', v: 1, ownerId: window.KLANG_OWNERSHIP.assertCurrent(), saved: new Date().toISOString(), state: S };
     const name = `a-mind-in-english-backup-${today()}.json`;
     downloadFile(name, JSON.stringify(data, null, 1), 'application/json', () => { S.lb = today(); saveNow(); renderSide(location.hash.slice(1) || 'home'); });
   }
   function readBackup(file) {
+    PENDING = null;
+    if (file.size > window.KLANG_BACKUP.MAX_BYTES) { toast('This backup is too large (maximum 10 MB).'); return; }
     const r = new FileReader();
+    r.onerror = () => toast('This backup could not be read. Your work is unchanged.');
     r.onload = () => {
       let o; try { o = JSON.parse(r.result); } catch (e) { toast('This file is not a valid backup.'); return; }
       const st = o && o.app === 'a-mind-in-english' && o.state;
-      if (!st || typeof st.a !== 'object') { toast('This file is not a backup from A Mind in English.'); return; }
+      if (!window.KLANG_BACKUP.validate(o)) { toast('This file is not a backup from A Mind in English.'); return; }
       const nA = Object.keys(st.a).filter(k => st.a[k]).length;
-      modal(`<h3>Restore this backup?</h3><p>Backup from <b>${esc((o.saved || '').slice(0, 10) || 'unknown date')}</b>: ${nA} saved answers, ${(st.errs || []).length} error-log rows, ${(st.sp || []).length} speaking attempts.</p>
-        <p>This <b>replaces</b> everything currently saved in this browser and, once it syncs, in your account. If you have newer work here, back it up first.</p>
+      modal(`<h3>Restore this backup?</h3><p>This deliberately assigns the imported work to your signed-in account. Verify that this backup belongs to you; older backups may have no verified owner.</p><p>Backup from <b>${esc((o.saved || '').slice(0, 10) || 'unknown date')}</b>: ${nA} saved answers, ${(st.errs || []).length} error-log rows, ${(st.sp || []).length} speaking attempts.</p>
+        <p>This <b>replaces</b> everything currently saved in this browser and, once it syncs, in your account. If you have newer work here, back it up first. Finalized study sessions and server-owned Learning Review history and judgments are retained. Raw recordings are not included.</p>
         <div class="acts"><button class="btn line" data-act="close">cancel</button><button class="btn line" data-act="backup">back up current first</button><button class="btn dark" data-act="dorestore">restore →</button></div>`);
       PENDING = st;
     };
@@ -1306,6 +1312,9 @@
     if (!PENDING) return;
     const fresh = JSON.parse(JSON.stringify(DEF));
     Object.keys(DEF).forEach(k => { if (PENDING[k] !== undefined) fresh[k] = PENDING[k]; });
+    // Server-owned judgments and finalized timer sessions are not erased by a local restore.
+    fresh.learningJudgments = S.learningJudgments;
+    fresh.study = window.KLANG_STUDY.merge(fresh.study, S.study);
     // Mutate in place: the sync engine holds a reference to S
     Object.keys(S).forEach(k => { delete S[k]; }); Object.assign(S, fresh); PENDING = null;
     migrateLegacyTimed(S);   // an old backup may still hold the Timed essay under the shared key
@@ -1313,6 +1322,8 @@
     if (window.KLANG_SYNC) {
       ['glossary', 'language-bank', 'error-log', 'bookmarks', 'portfolio', 'speaking', 'current-affairs', 'progress'].forEach(k => window.KLANG_SYNC.markDirty(k));
       window.KLANG_SYNC.markDirty('english-profile');
+      window.KLANG_SYNC.markDirty('study-timer');
+      Object.keys(S.conversations || {}).forEach(id => window.KLANG_SYNC.markDirty('conversation:' + id));
       Object.keys(UNITS).forEach(u => window.KLANG_SYNC.markDirty('unit:' + u));
       Object.keys(REVIEWS).forEach(id => window.KLANG_SYNC.markDirty('review:' + id));
       window.KLANG_SYNC.syncPending();
@@ -2190,6 +2201,7 @@
         copyText(md, 'Issue copied as markdown'); break;
       }
       case 'menu': document.body.classList.toggle('nav-open'); break;
+      case 'legacybackup': if (!isDemo()) downloadFile('a-mind-unassigned-recovery.json', JSON.stringify(window.KLANG_OWNERSHIP.legacyRecovery(), null, 1), 'application/json'); break;
       case 'backup': if (isDemo()) { toast('Backup is disabled in Demo Mode.'); break; } doBackup(); break;
       case 'restore': if (isDemo()) { toast('Restore is disabled in Demo Mode.'); break; } { const f = $('#bkfile'); f && f.click(); break; }
       case 'dorestore': if (isDemo()) { toast('Restore is disabled in Demo Mode.'); break; } applyRestore(); break;
@@ -2278,14 +2290,23 @@
   // Writing Support actually opened for an activity: recorded once (<unit>:<id>:support) with the level
   // shown and whether the learner had written anything yet. Selecting a level is not use; Off shows nothing.
   // Only these three facts: no keystrokes, no text.
-  document.addEventListener('toggle', e => {
-    const d = e.target;
-    if (!d || !d.open || !d.dataset || !d.dataset.wsup || d.dataset.level === 'off') return;
+  function recordSupportOpen(d) {
+    if (!d || !d.dataset || !d.dataset.wsup || d.dataset.level === 'off') return;
     const k = d.dataset.wsup, key = k + ':support';
     if (S.a[key]) return;
     const written = [S.a[k], S.a[`${k}:outline`]].some(v => typeof v === 'string' && v.trim());
     S.a[key] = { at: new Date().toISOString(), level: d.dataset.level, beforeWriting: !written };
     save(key);
+  }
+  // Native details.toggle is queued: a fast input event can arrive before it.
+  // Record the opening activation at its factual moment, before subsequent typing.
+  document.addEventListener('click', e => {
+    const summary = e.target.closest && e.target.closest('summary');
+    const d = summary && summary.parentElement;
+    if (d && !d.open && !e.defaultPrevented) recordSupportOpen(d);
+  });
+  document.addEventListener('toggle', e => {
+    if (e.target && e.target.open) recordSupportOpen(e.target);
   }, true);
 
   function setSupportLevel(k, level) {

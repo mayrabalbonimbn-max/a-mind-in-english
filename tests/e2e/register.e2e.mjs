@@ -130,7 +130,7 @@ try {
   await A.shot('04-result-1440');
   // The Language Bank is retired: no save buttons, and the result says plainly that nothing is saved
   check('no save buttons; "Nothing is saved."', await A.eval(`!document.querySelector('#modal [data-rk], #modal .rg-save') && !/Language Bank/i.test(document.querySelector('#modal').innerText) && document.querySelector('#modal .rg-foot').innerText.trim().endsWith('Nothing is saved.')`));
-  const bank = await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1')).bank || []`);
+  const bank = await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).bank || []`);
   check('nothing written to the retired Language Bank', bank.length === 0, JSON.stringify(bank));
   await A.eval(`document.querySelector('#modal [data-act="close"]').click()`);
 

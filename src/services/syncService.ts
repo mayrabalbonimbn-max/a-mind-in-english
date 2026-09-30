@@ -84,6 +84,16 @@ export async function getUserDocument(userId: string, key: string) {
   });
 }
 
+// Shared browser/server timer rules; finalized server sessions are never overwritten.
+const studyRules = require('../../public/study-timer.js');
+function authoritativeData(key: string, incoming: any, stored: any) {
+  if (key !== 'study-timer') return incoming;
+  const merged = studyRules.merge(incoming, stored);
+  const finalized = new Map((stored?.sessions || []).map((s: any) => [s.id, s]));
+  merged.sessions = merged.sessions.map((s: any) => finalized.get(s.id) || s);
+  return merged;
+}
+
 const docSelect = {
   key: true,
   data: true,
@@ -128,7 +138,7 @@ export async function upsertDocumentWithConcurrency(
     if (clientRev === existing.revision) {
       const cas = await tx.userDocument.updateMany({
         where: { id: existing.id, revision: clientRev },
-        data: { data, revision: { increment: 1 } },
+        data: { data: authoritativeData(key, data, existing.data), revision: { increment: 1 } },
       });
       if (cas.count === 1) {
         const updated = await tx.userDocument.findUniqueOrThrow({
@@ -262,7 +272,7 @@ export async function resolveDocumentConflict(params: {
       where: {
         userId_key: { userId: params.userId, key: params.key },
       },
-      select: { id: true },
+      select: { id: true, data: true },
     });
 
     if (!existing) {
@@ -276,7 +286,7 @@ export async function resolveDocumentConflict(params: {
         revision: params.expectedServerRevision,
       },
       data: {
-        data: params.resolvedData,
+        data: authoritativeData(params.key, params.resolvedData, existing.data),
         revision: { increment: 1 },
       },
     });

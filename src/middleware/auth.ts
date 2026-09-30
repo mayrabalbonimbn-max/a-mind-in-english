@@ -66,7 +66,7 @@ export async function authenticateSession(req: Request, res: Response, next: Nex
     };
     next();
   } catch (err) {
-    console.error('Error authenticating session:', err);
+    console.error('Error authenticating session:', (err as Error)?.name);
     next();
   }
 }

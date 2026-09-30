@@ -14,7 +14,9 @@ export const BOOK = (() => {
 // arrive through the real hydration path (fetch answers /api/docs; nothing leaves the process).
 export function loadApp(initialState?: any, opts: { fetch?: (url: string, init: any) => any; sync?: { user: any } } = {}) {
   const storage = new Map<string, string>();
-  if (initialState) storage.set('klang.mind.v1', JSON.stringify(initialState));
+  const fixtureOwner = opts.sync?.user?.id || 'test-user';
+  const fixtureKey = (base: string) => base + '.account:' + encodeURIComponent(fixtureOwner);
+  if (initialState) storage.set(fixtureKey('klang.mind.v1'), JSON.stringify(initialState));
   const listeners: Record<string, Function[]> = {};
   const on = (scope: string) => (ev: string, fn: Function) => ((listeners[scope + ev] ||= []).push(fn));
   const el = (): any => ({
@@ -26,7 +28,7 @@ export function loadApp(initialState?: any, opts: { fetch?: (url: string, init: 
   });
   const els: Record<string, any> = { '#main': el(), '#side': el(), '#topbar': el(), '#toast': el(), '#rprog': el() };
   const fetches: { url: string; body: any }[] = [];
-  const location = { hash: '#home' };
+  const location = { hash: '#home', href: 'http://localhost/', origin: 'http://localhost' };
   const document: any = {
     querySelector: (s: string) => els[s] || null,
     querySelectorAll: () => [],
@@ -42,7 +44,7 @@ export function loadApp(initialState?: any, opts: { fetch?: (url: string, init: 
     document, location,
     localStorage: { getItem: (k: string) => storage.get(k) ?? null, setItem: (k: string, v: string) => storage.set(k, String(v)), removeItem: (k: string) => storage.delete(k) },
     sessionStorage: { getItem: () => null, setItem() {}, removeItem() {} },
-    navigator: {}, CSS: { escape: (s: string) => s }, console, Math, Date, JSON, URL,
+    Headers, encodeURIComponent, AbortController, navigator: {}, CSS: { escape: (s: string) => s }, console, Math, Date, JSON, URL,
     setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
     innerWidth: 1200, innerHeight: 800, scrollX: 0, scrollY: 0, scrollTo() {},
     addEventListener: on('win:'),
@@ -65,12 +67,14 @@ export function loadApp(initialState?: any, opts: { fetch?: (url: string, init: 
     ctx.navigator.onLine = true;
   }
   vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, 'public/ownership.js'), 'utf8'), ctx);
+  ctx.KLANG_OWNERSHIP.bind({ id: fixtureOwner });
   if (opts.sync) vm.runInContext(fs.readFileSync(path.join(root, 'public/sync.js'), 'utf8'), ctx, { filename: 'sync.js' });
   for (const f of BOOK) {
     if (f === 'boot.js') continue;
     vm.runInContext(fs.readFileSync(path.join(root, 'public', f), 'utf8'), ctx, { filename: f });
   }
-  const state = () => JSON.parse(storage.get('klang.mind.v1') || '{}');
+  const state = () => JSON.parse(storage.get(fixtureKey('klang.mind.v1')) || '{}');
   const go = (hash: string) => { location.hash = '#' + hash; (listeners['win:hashchange'] || []).forEach(fn => fn()); return els['#main'].innerHTML as string; };
   const fire = (type: string, target: any) => (listeners['doc:' + type] || []).forEach(fn => fn({ target, preventDefault() {} }));
   const click = (dataset: Record<string, string>) => {

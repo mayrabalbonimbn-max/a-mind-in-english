@@ -18,7 +18,6 @@
     if (leaving) return;
     leaving = true;
     auth.user = null;
-    try { sessionStorage.removeItem('klang.mind.demo.v1'); } catch (e) { }
     try { sessionStorage.setItem(MSG_KEY, message); } catch (e) { }
     document.body.classList.add('gated');
     if (url) location.replace(url);
@@ -28,6 +27,7 @@
   const auth = (window.KLANG_AUTH = {
     user: null,
     // The server answered 401 (session expired or revoked)
+    accountChanged() { relock("The active account changed. Your work remains with its original account."); },
     sessionExpired() {
       relock('Your session has ended. Sign in again: your work is safe on this device and will sync after you sign in.');
     },
@@ -138,6 +138,8 @@
   }
 
   async function enter(user) {
+    window.KLANG_OWNERSHIP.bind(user);
+    window.KLANG_SYNC.prepare();
     auth.user = user;
     try {
       // app.js starts sync with auth.user: hydrate from the cloud (never overwriting

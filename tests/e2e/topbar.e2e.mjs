@@ -90,12 +90,13 @@ try {
   await A.shot('1440-home');
 
   // stopped · running (3 min) · long (10 h 42 min, confirmed now so it is not ended by the check-in)
+  let timerFixture = 0;
   const setTimer = (mode) => {
     const ago = mode === 'long' ? 10 * H + 42 * 60000 : 3 * 60000;
-    return A.eval(`(() => { const s = JSON.parse(localStorage.getItem('klang.mind.v1')); const now = Date.now();
+    return A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); const now = Date.now();
       s.study = s.study || { activeSession: null, sessions: [] };
-      s.study.activeSession = ${mode === 'stopped'} ? null : { id: 'st_topbar', startedAt: new Date(now - ${ago}).toISOString(), lastSeenAt: new Date(now).toISOString(), confirmedAt: new Date(now).toISOString() };
-      localStorage.setItem('klang.mind.v1', JSON.stringify(s)); })()`);
+      s.study.activeSession = ${mode === 'stopped'} ? null : { id: 'st_topbar_${++timerFixture}', startedAt: new Date(now - ${ago}).toISOString(), lastSeenAt: new Date(now).toISOString(), confirmedAt: new Date(now).toISOString() };
+      localStorage.setItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'), JSON.stringify(s)); })()`);
   };
 
   for (const w of [390, 320]) {
@@ -122,7 +123,7 @@ try {
     await A.shot(`${w}-nav-open`);
     await A.eval(`document.body.classList.remove('nav-open')`);
     await click(A, '#topbar-timer [data-act="timer-toggle"]'); await sleep(300);
-    check(`${w}px: timer button still toggles (was running → paused)`, await A.eval(`!JSON.parse(localStorage.getItem('klang.mind.v1')).study.activeSession`));
+    check(`${w}px: timer button still toggles (was running → paused)`, await A.eval(`!JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study.activeSession`));
     const l = await layout(A);
     check(`${w}px: no horizontal overflow`, !l.over, JSON.stringify(l));
   }

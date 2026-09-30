@@ -71,7 +71,7 @@ authRouter.post('/register', async (req: Request, res: Response): Promise<void> 
       });
       return;
     }
-    console.error('Registration error:', err);
+    console.error('Registration error:', (err as Error)?.name);
     res.status(500).json({
       error: 'internal_error',
       message: 'Failed to create account. Please try again.',

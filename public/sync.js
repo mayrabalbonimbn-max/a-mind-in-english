@@ -47,29 +47,35 @@
   // while other tabs on this same device still receive them.
   const CLIENT_ID = 'tab_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
   const RETRY_MS = 15000;
+  const REQUEST_TIMEOUT_MS = 20000;
 
   // App callbacks
   let appState = null;
   let onRemoteUpdate = null;
   let onSaveLocal = null;
 
-  // Load saved revisions & pending queue from localStorage
-  try {
-    const rawRevs = localStorage.getItem(REV_KEY);
-    if (rawRevs) revisions = JSON.parse(rawRevs);
-    const rawPending = localStorage.getItem(PENDING_KEY);
-    if (rawPending) {
-      const arr = JSON.parse(rawPending);
-      if (Array.isArray(arr)) arr.forEach((k) => pendingScopes.add(k));
+  let metadataOwner = null;
+  function loadSyncMeta() {
+    const owner = window.KLANG_OWNERSHIP.assertCurrent();
+    if (metadataOwner === owner) return;
+    metadataOwner = owner;
+    try {
+      const rawRevs = localStorage.getItem(window.KLANG_OWNERSHIP.key(REV_KEY));
+      if (rawRevs) revisions = JSON.parse(rawRevs);
+      const rawPending = localStorage.getItem(window.KLANG_OWNERSHIP.key(PENDING_KEY));
+      if (rawPending) {
+        const arr = JSON.parse(rawPending);
+        if (Array.isArray(arr)) arr.forEach((k) => pendingScopes.add(k));
+      }
+    } catch (e) {
+      console.warn('Could not read sync metadata from localStorage', e);
     }
-  } catch (e) {
-    console.warn('Could not read sync metadata from localStorage', e);
   }
 
   function saveSyncMeta() {
     try {
-      localStorage.setItem(REV_KEY, JSON.stringify(revisions));
-      localStorage.setItem(PENDING_KEY, JSON.stringify(Array.from(pendingScopes)));
+      localStorage.setItem(window.KLANG_OWNERSHIP.key(REV_KEY), JSON.stringify(revisions));
+      localStorage.setItem(window.KLANG_OWNERSHIP.key(PENDING_KEY), JSON.stringify(Array.from(pendingScopes)));
     } catch (e) {}
   }
 
@@ -231,6 +237,7 @@
   }
 
   function applyScopeData(S, scope, data) {
+    window.KLANG_OWNERSHIP.assertCurrent();
     if (!data) return;
 
     if (scope.startsWith('conversation:')) {
@@ -398,13 +405,19 @@
       opts.body = JSON.stringify(opts.body);
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    opts.signal = controller.signal;
     try {
       const res = await fetch(endpoint, opts);
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch((err) => { if (err?.message === 'account_changed') throw err; return {}; });
+      if (window.KLANG_OWNERSHIP.owner()) window.KLANG_OWNERSHIP.assertCurrent();
       if (res.status === 401 && !endpoint.startsWith('/api/auth/')) handleUnauthorized();
       return { ok: res.ok, status: res.status, data };
     } catch (err) {
       return { ok: false, status: 0, networkError: true, err };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -416,7 +429,8 @@
     sessionLost = true;
     currentUser = null;
     stopRealtime();
-    saveSyncMeta();
+    // Every edit/ack already persisted metadata. A stale tab must not overwrite another
+    // tab's pending queue when its shared session expires.
     setStatus('saved_locally');
     if (window.KLANG_AUTH) window.KLANG_AUTH.sessionExpired();
   }
@@ -451,6 +465,7 @@
   }
 
   function markDirty(scope) {
+    window.KLANG_OWNERSHIP.assertCurrent();
     if (!scope) return;
     if (currentUser?.isDemo) {
       setStatus('demo_mode');
@@ -510,8 +525,13 @@
         return;
       }
 
-      if (res.ok && res.data.success) {
+      if (res.ok && res.data.success && res.data.doc && Number.isInteger(res.data.doc.revision) && res.data.doc.revision > baseRevision) {
         revisions[scope] = res.data.doc.revision;
+        if (scope === 'study-timer' && res.data.doc.data && window.KLANG_STUDY) {
+          appState.study = window.KLANG_STUDY.merge(appState.study, res.data.doc.data);
+          if (onSaveLocal) onSaveLocal();
+          if (onRemoteUpdate) onRemoteUpdate([scope]);
+        }
         // Only clear if nothing was typed in this scope while the request was in flight
         if ((editSeq[scope] || 0) === seqAtSend) {
           pendingScopes.delete(scope);
@@ -545,9 +565,9 @@
       }
     }
 
-    saveSyncMeta();
     isSyncing = false;
     if (!currentUser) return;
+    saveSyncMeta();
 
     if (anyConflict) {
       setStatus('sync_conflict');
@@ -587,13 +607,16 @@
       return;
     }
 
-    const remoteDocs = res.data.documents || [];
+    if (res.data.success === false || !Array.isArray(res.data.documents)) { setStatus('sync_error'); return; }
+    const remoteDocs = res.data.documents;
+    if (remoteDocs.some(d => !d || typeof d.key !== 'string' || !Number.isInteger(d.revision) || d.revision < 1 || (d.data === null ? d.key !== 'english-profile' : !d.data || typeof d.data !== 'object' || Array.isArray(d.data)))) { setStatus('sync_error'); return; }
 
     // Case 1: Remote is empty, but local has data -> Migration!
     if (remoteDocs.length === 0) {
       if (hasLocalWork(appState)) {
         console.log('Remote is empty. Performing initial migration of local state to cloud...');
         const docs = decomposeState(appState);
+        const seqAtUpload = { ...editSeq };
         const batchList = Object.keys(docs).map((key) => ({
           key,
           data: docs[key],
@@ -605,10 +628,10 @@
           body: { documents: batchList },
         });
 
-        if (uploadRes.ok && uploadRes.data.success) {
+        if (uploadRes.ok && uploadRes.data.success && Array.isArray(uploadRes.data.saved) && Array.isArray(uploadRes.data.conflicts) && uploadRes.data.saved.every(d => d && typeof d.key === 'string' && Number.isInteger(d.revision) && d.revision > 0)) {
           uploadRes.data.saved.forEach((d) => {
             revisions[d.key] = d.revision;
-            pendingScopes.delete(d.key);
+            if ((editSeq[d.key] || 0) === (seqAtUpload[d.key] || 0)) pendingScopes.delete(d.key);
           });
           // Anything that raced with another device stays pending and will surface as a conflict
           uploadRes.data.conflicts.forEach((c) => pendingScopes.add(c.key));
@@ -644,7 +667,7 @@
         }
       }
 
-      if (revisions[doc.key] !== doc.revision) {
+      if ((revisions[doc.key] ?? 0) < doc.revision) {
         applyScopeData(appState, doc.key, doc.data);
         revisions[doc.key] = doc.revision;
         changed = true;
@@ -671,7 +694,7 @@
     if (sseSource) sseSource.close();
     if (!currentUser || currentUser.isDemo) return;
 
-    sseSource = new EventSource(`/api/sync/events?clientId=${encodeURIComponent(CLIENT_ID)}`, { withCredentials: true });
+    sseSource = new EventSource(`/api/sync/events?owner=${encodeURIComponent(window.KLANG_OWNERSHIP.assertCurrent())}&clientId=${encodeURIComponent(CLIENT_ID)}`, { withCredentials: true });
     let hadError = false;
 
     sseSource.onopen = () => {
@@ -684,6 +707,7 @@
 
     sseSource.addEventListener('doc_saved', (e) => {
       try {
+        window.KLANG_OWNERSHIP.assertCurrent();
         const payload = JSON.parse(e.data);
         const key = payload.key;
         const newRev = payload.revision;
@@ -1024,16 +1048,16 @@
       return;
     }
 
-    if (res.ok && res.data.doc) {
+    if (res.ok && res.data.doc && Number.isInteger(res.data.doc.revision) && res.data.doc.revision > expectedServerRevision) {
       revisions[key] = res.data.doc.revision;
       conflictScopes.delete(key);
       activeConflict = null;
       if ((editSeq[key] || 0) === seqAtSend) {
-        applyScopeData(appState, key, resolvedData);
+        applyScopeData(appState, key, res.data.doc.data || resolvedData);
         pendingScopes.delete(key);
       } else if (isStudy) {
         // The timer ticked during resolution: keep the local heartbeat on top of the merged sessions
-        applyScopeData(appState, key, resolvedData);
+        applyScopeData(appState, key, res.data.doc.data || resolvedData);
         clearTimeout(syncTimer);
         syncTimer = setTimeout(syncPending, 800);
       } else if (isConversation) {
@@ -1059,6 +1083,8 @@
 
   /* ── Auth ─────────────────────────────────────────── */
   function startSession(user) {
+    window.KLANG_OWNERSHIP.bind(user);
+    loadSyncMeta();
     sessionLost = false;
     currentUser = user;
     updateAccountUI();
@@ -1090,7 +1116,7 @@
     stopRealtime();
     await apiFetch('/api/auth/logout', { method: 'POST' });
     currentUser = null;
-    saveSyncMeta();
+    window.KLANG_OWNERSHIP.release();
     if (window.KLANG_AUTH) window.KLANG_AUTH.signedOut(unsynced);
     else updateAccountUI();
   }
@@ -1148,6 +1174,8 @@
 
   /* ── Public API ───────────────────────────────────── */
   window.KLANG_SYNC = {
+    prepare: loadSyncMeta,
+    accountChanged() { sessionLost = true; stopRealtime(); currentUser = null; },
     init: function (options) {
       appState = options.state;
       onRemoteUpdate = options.onRemoteUpdate;

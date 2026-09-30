@@ -134,7 +134,7 @@ describe('conversation sync (client, lossless merge by immutable turn id)', () =
     server.setOnline(false);
     await first.write(say(fresh(), 'user_q0001'));
     const storage = Object.fromEntries(first.client.storage);
-    expect(JSON.parse(storage['klang.mind.pending.v1'])).toContain(KEY);
+    expect(JSON.parse(storage['klang.mind.pending.v1.account:u'])).toContain(KEY);
     server.setOnline(true);
     const S = emptyState(); S.conversations = { conversation_sync1: say(fresh(), 'user_q0001') }; // app state restored from its own storage
     const reloaded = loadSyncClient(server.fetch, storage);

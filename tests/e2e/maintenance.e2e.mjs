@@ -76,20 +76,21 @@ const prisma = new PrismaClient();
 const email = `e2e-maintenance-${Date.now()}@example.com`;
 try {
   await connect();
-  await fetch(BASE + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'Password123!' }) });
+  const registration = await fetch(BASE + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password: 'Password123!' }) });
+  const fixtureOwner = (await registration.json()).user.id;
   const { browserContextId } = await send('Target.createBrowserContext');
   const A = await newPage(browserContextId);
   await A.size(1440, 900);
   await A.goto(BASE + '/');
-  // Legacy data on this device before the new build loads (as after an update)
-  await A.eval(`localStorage.setItem('klang.mind.v1', ${JSON.stringify(JSON.stringify(LEGACY))})`);
+  // Old-schema fixture with a known test-account owner; unowned legacy quarantine has its own E2E.
+  await A.eval(`localStorage.setItem(${JSON.stringify('klang.mind.v1.account:')} + encodeURIComponent(${JSON.stringify(fixtureOwner)}), ${JSON.stringify(JSON.stringify(LEGACY))})`);
   await A.eval(`fetch('/api/auth/login', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: ${JSON.stringify(email)}, password: 'Password123!' }) }).then(r => r.status)`);
   await A.cmd('Page.reload'); await sleep(900);
   check('signed in, book loaded', await A.waitFor(`!!window.KLANG_PROFILE && !document.body.classList.contains('gated')`, 15000));
   await A.waitFor(`document.querySelector('[data-sync-status]')?.innerText.includes('Saved to cloud')`, 10000);
 
   /* Timed essay id migration, in the real page and through the cloud */
-  const st = await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1'))`);
+  const st = await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1')))`);
   check('essay moved to its own id; MCQ answer restored; Portfolio moved', st.a['r1:m1tc1'] === ESSAY && st.a['r1:m1t1'] === '2' && st.pf['r1:m1tc1']?.fb?.[0]?.id === 'fbr1' && !st.pf['r1:m1t1'], JSON.stringify({ tc: st.a['r1:m1tc1'], mcq: st.a['r1:m1t1'], pf: Object.keys(st.pf) }));
   const cloud = await A.eval(`fetch('/api/docs/review%3A1', { credentials: 'include' }).then(r => r.json())`);
   check('the cloud copy of Review 1 has the migrated keys', cloud?.doc?.data?.answers?.['r1:m1tc1'] === ESSAY && cloud.doc.data.answers['r1:m1t1'] === '2', JSON.stringify(cloud?.doc?.data?.answers || cloud).slice(0, 200));

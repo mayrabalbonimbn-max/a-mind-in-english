@@ -171,12 +171,15 @@ describe('sync.js with the auth gate', () => {
 
     S.a['01:w2'] = 'An essay I must never lose';
     api.markDirty('unit:01');
+    // Another A tab can have queued work that this stale tab never loaded.
+    storage.set('klang.mind.pending.v1.account:u', JSON.stringify(['unit:01', 'review:7']));
     await api.syncPending();
 
+    expect(JSON.parse(storage.get('klang.mind.pending.v1.account:u')!)).toContain('review:7');
     expect(auth.calls).toEqual(['expired']);
     expect(api.getUser()).toBeNull();
     expect(api.getStatus()).toBe('saved_locally');
-    expect(JSON.parse(storage.get('klang.mind.pending.v1')!)).toContain('unit:01');
+    expect(JSON.parse(storage.get('klang.mind.pending.v1.account:u')!)).toContain('unit:01');
     expect(S.a['01:w2']).toBe('An essay I must never lose');
   });
 
@@ -224,7 +227,7 @@ describe('sync.js with the auth gate', () => {
     expect(calls.indexOf('PUT /api/docs/language-bank')).toBeLessThan(calls.indexOf('POST /api/auth/logout'));
     expect(auth.calls).toEqual(['signedOut:false']);
     expect(api.getUser()).toBeNull();
-    expect(storage.get('klang.mind.pending.v1')).toBe('[]');
+    expect(storage.get('klang.mind.pending.v1.account:u')).toBe('[]');
     expect(S.bank).toHaveLength(1);
   });
 

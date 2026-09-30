@@ -469,6 +469,15 @@ are separate records. History is never trimmed. Module Review main tasks
 have no Draft 2 task, so their Draft 1 is not frozen, but every analysis
 of them is still kept as a snapshot.
 
+Local hardening (IN DEVELOPMENT, not deployed): Writing Support use is
+recorded at the opening activation before subsequent typing; the queued
+browser disclosure event cannot reverse the before-writing fact.
+
+Local hardening (IN DEVELOPMENT, not deployed): a Main Write response is
+successful only after its server snapshot is saved. A snapshot insertion
+failure returns an error and leaves the draft unchanged. Quota still counts
+the attempted provider request; no automatic provider retry is added.
+
 ------------------------------------------------------------------------
 
 ## 14. RETRIEVE
@@ -1311,6 +1320,13 @@ reliable moment:
 -   after a long unconfirmed stretch the learner is asked "Still
     studying?"; confirming (or pausing) keeps every minute, and an
     unanswered question ends the session where it was asked.
+
+Local hardening (IN DEVELOPMENT, not deployed): finalization is terminal
+for manual, stale, unanswered-check-in and superseded sessions. A late
+heartbeat cannot reopen one, including through sync conflict resolution.
+Accidental sessions shorter than five seconds contribute no study duration,
+but their finalized ids are retained to prevent resurrection. Closed server
+sessions survive backup restore; local-day display only clips presentation.
 
 Nothing is inferred from mouse, keyboard or scroll activity.
 
@@ -2182,6 +2198,38 @@ The application includes:
 -   conflict handling;
 -   JSON backup/restore.
 
+Local account ownership hardening (IN DEVELOPMENT, not deployed) is verified.
+Browser learner state, sync revisions/queue, conversation drafts/client sequence
+and IndexedDB recordings now use `.account:<encoded authenticated user id>`
+namespaces. One immutable owner is bound per document before learner state or
+sync metadata loads. An origin-wide active-account marker coordinates tab
+invalidation only; it is never the authority for selecting learner storage.
+Account changes relock stale tabs, stop sync/SSE, abort requests and reject late
+body consumption. Browser mutations require the captured owner; the server
+rejects mismatches against its authenticated request identity. Existing server
+user/document ownership and CAS authority remain unchanged.
+
+Legacy origin-wide stores remain quarantined and untouched. They are never
+implicitly assigned to the next signed-in account. An explicit unassigned
+recovery copy preserves raw state and old sync metadata; users must verify
+ownership before restoring selected work. Legacy revisions/queues are never
+adopted, and raw legacy recordings never fall back into an account's vault.
+Recording recovery requires separate ownership verification and a deliberate
+copy to the verified owner's namespace; ambiguous recordings stay unassigned.
+
+Verification: 619/619 unit/integration tests (39 files), typecheck/build pass;
+existing E2Es 300/300, hardening 23/23, account ownership 27/27, including the
+previously failing same-browser account-switch guard. See
+`ACCOUNT_OWNERSHIP_HARDENING_REPORT.md`. The local readiness gate is closed;
+English Profile 2.0 was not started and no deployment/production access occurred.
+
+JSON restore explicitly requires confirmation to replace local work and
+synced editable documents. Local hardening validates supported state shapes,
+ids, dates and support metadata before mutation and rejects files over 10 MB.
+It retains finalized timer history and server-owned Learning Review judgments;
+raw IndexedDB recordings and server run/analysis tables are not backed up by
+this local-state JSON file. It is not a full database backup.
+
 Do not infer additional operational details without inspecting the
 current project/infrastructure.
 
@@ -2294,7 +2342,7 @@ At a high level:
 -   Compare Registers;
 -   deterministic Writing Support;
 -   local-first/sync/account infrastructure;
--   Study Timer with manual Start / Stop, user-scoped persistence and refresh survival;
+-   Study Timer with manual Start / Stop, user-owned server persistence and refresh survival (client account isolation limitation: §67);
 -   Nightly Learning Review with 60-minute active study eligibility check + new usable evidence gate;
 -   Run Review Now manual action with shared pipeline and safe fallback;
 -   Factual Evidence Ledger with opportunity tracking, counter-evidence and provenance categories;
@@ -2402,7 +2450,7 @@ And the learner-facing heart of the product remains:
 
 ## Visual system · MIND (2026-09-30, local, not deployed)
 
--   Brand: the visible wordmark, cover lockup, seal monogram, arch caption, sidebar footer, letter signature and Markdown export header say MIND (was KLANG). Technical names stay: `window.KLANG*` globals, `klang.mind.*` storage keys, `klang.gate.msg`, `klang_session` cookie, `klang-private-recordings-v1` IndexedDB — renaming them would orphan saved data or sessions.
+-   Brand: the visible wordmark, cover lockup, seal monogram, arch caption, sidebar footer, letter signature and Markdown export header say MIND (was KLANG). Technical names stay: `window.KLANG*` globals, `klang.mind.*` storage keys, `klang.gate.msg`, `klang_session` cookie, `klang-private-recordings-v1` IndexedDB base name. Account hardening adds authenticated-owner namespaces while preserving the unowned legacy stores; cosmetic renaming remains prohibited.
 -   Palette: pink editorial. Semantic tokens in `public/styles.css :root` (`--bg`, `--bg-subtle`, `--surface*`, `--text*`, `--accent*`, `--border*`, `--interactive*`, `--success/warning/error/info/neutral`); legacy names (`--esp`, `--creme`, `--rosa`, `--ink`…) map onto them. Former dark contexts re-point their on-dark tokens to espresso ink in one scoped rule. Espresso is ink, lines, small marks and the primary CTA only.
 -   Sidebar = table of contents: continue CTA, search, MODULES, NOTEBOOK; account + sync, Study Timer and progress in one strip docked at the sidebar foot (order ACCOUNT → TIMER → PROGRESS kept).
 -   Learning Review page groups the same persisted report as: At a glance · What's working · Patterns · Since last review · Next session · Proposals · Uncertainties · Evidence (evidence behind `details`). FACT / AI INTERPRETATION / YOUR JUDGMENT / PROPOSAL tags kept. PDFs unchanged.

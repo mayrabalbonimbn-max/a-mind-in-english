@@ -61,6 +61,19 @@ app.use(
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
 app.use(authenticateSession);
+// Bind browser requests to the account that created the work, not a later shared cookie.
+app.use((req: Request, res: Response, next: NextFunction) => {
+  if (!req.path.startsWith('/api/') || ['/api/auth/login', '/api/auth/register', '/api/health'].includes(req.path)) return next();
+  const expected = req.get('X-Learner-Id') || (req.path === '/api/sync/events' && typeof req.query.owner === 'string' ? req.query.owner : undefined);
+  if (req.user && expected && expected !== req.user.id) {
+    res.setHeader('X-Account-Changed', '1');
+    res.status(403).json({ error: 'account_changed' }); return;
+  }
+  if (req.user && req.get('Sec-Fetch-Site') && (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/api/sync/events') && !expected) {
+    res.status(428).json({ error: 'account_owner_required' }); return;
+  }
+  next();
+});
 
 // Health check endpoint (public)
 app.get('/api/health', async (req: Request, res: Response) => {
@@ -82,7 +95,7 @@ app.use('/api', syncRouter);
 // Private app: without a session only the sign-in shell is served. Everything else in
 // public/ (app.js, data/curriculum.js, data/unit-*.js and any future asset) needs a session.
 // Allowlist on purpose, so a new file is private by default.
-export const GATE_ASSETS = new Set(['/', '/index.html', '/styles.css', '/sync.js', '/boot.js',
+export const GATE_ASSETS = new Set(['/', '/index.html', '/styles.css', '/sync.js', '/ownership.js', '/boot.js',
   // App icon + manifest: fetched by browsers/OS without the session cookie; they contain no course content
   '/manifest.webmanifest', '/favicon.ico', '/apple-touch-icon.png',
   '/icons/icon-192.png', '/icons/icon-512.png', '/icons/maskable-192.png', '/icons/maskable-512.png']);
@@ -115,7 +128,12 @@ app.use((req: Request, res: Response) => {
 
 // Global error handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error('Unhandled server error:', err);
+  // Body-parser errors contain raw request text; never log their bodies or stacks.
+  if (err?.type === 'entity.parse.failed' || err?.type === 'entity.too.large') {
+    res.status(err.type === 'entity.too.large' ? 413 : 400).json({ error: 'validation_error', message: 'Invalid request body.' });
+    return;
+  }
+  console.error('Unhandled server error:', err?.name);
   res.status(500).json({
     error: 'internal_server_error',
     message: 'An unexpected error occurred',

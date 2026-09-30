@@ -53,7 +53,7 @@ const text = p => p.eval(`document.querySelector('#main').innerText`);
 
 
 const click = (p, sel) => p.eval(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); if (!b) return false; b.click(); return true; })()`);
-const local = p => p.eval(`JSON.parse(localStorage.getItem('klang.mind.v1'))`);
+const local = p => p.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1')))`);
 const typeInto = (p, k, text) => p.eval(`(() => { const t = document.querySelector('textarea[data-k="${k}"]'); t.value = ${JSON.stringify(text)}; t.dispatchEvent(new Event('input', { bubbles: true })); return t.value; })()`);
 const synced = p => p.waitFor(`/saved to cloud/i.test(document.querySelector('[data-sync-status]')?.innerText || '')`, 15000);
 const pressed = p => p.eval(`[...document.querySelectorAll('[data-lr-judge][aria-pressed="true"]')].map(b => b.dataset.lrJudge)`);
@@ -82,7 +82,7 @@ try {
   await click(A, '[data-wsupw="01:w2"] details.wsup > summary'); await sleep(250);
   check('C. Writing Support opened after starting to write', (await local(A)).a['01:w2:support']?.beforeWriting === false);
   await click(A, '[data-act="aifb"][data-q="01:w2"]');
-  check('D. feedback (fake) returned and saved', await A.waitFor(`!!document.querySelector('#modal .fbx') || !!(JSON.parse(localStorage.getItem('klang.mind.v1')).pf?.['01:w2']?.fb?.length)`, 15000));
+  check('D. feedback (fake) returned and saved', await A.waitFor(`!!document.querySelector('#modal .fbx') || !!(JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).pf?.['01:w2']?.fb?.length)`, 15000));
   await click(A, '#modal [data-act="close"]'); await sleep(300);
   const entry = (await local(A)).pf['01:w2'].fb[0];
   check('D. portfolio entry holds the snapshot and the real metadata', entry.text === D1 && entry.model === 'e2e-fake' && entry.promptVersion === 'main-write-v2' && entry.support?.used === true && entry.support?.openedBeforeWriting === false && entry.support?.level === 'high', JSON.stringify({ ...entry, f: undefined }));

@@ -1,3 +1,4 @@
+import { saveHumanJudgment } from '../services/learningReview/judgments';
 import { Router, Request, Response } from 'express';
 import { requireAuth, requireNonDemo } from '../middleware/auth';
 import { createRateLimiter } from '../middleware/rateLimit';
@@ -66,13 +67,15 @@ learningReviewRouter.post('/run', requireNonDemo('The Learning Review', 'demo_ai
     if (!status.pending) { res.json({ status: 'no_new_evidence' }); return; }
   } catch (err) { next(err); return; }
   runLimiter(req, res, async () => {
-    const r = await runLearningReview(req.user!.id, 'manual');
-    if (r.status === 'completed') { res.json({ status: 'completed', report: r.report }); return; }
-    if (r.status === 'no_new_evidence') { res.json({ status: 'no_new_evidence' }); return; }
-    if (r.status === 'below_study_threshold') { res.json({ status: 'below_study_threshold', studyMinutes: r.studyMinutes, requiredMinutes: r.requiredMinutes }); return; }
-    if (r.status === 'busy') { res.status(409).json({ error: 'review_running', message: 'A review is already running.' }); return; }
-    const http = r.code === 'ai_timeout' ? 504 : r.code === 'ai_rate_limited' ? 429 : r.code === 'ai_unavailable' ? 503 : 502;
-    res.status(http).json({ error: r.code, message: 'The review could not be completed. Your previous review is unchanged, and the same evidence will be used next time.', previousKept: true });
+    try {
+      const r = await runLearningReview(req.user!.id, 'manual');
+      if (r.status === 'completed') { res.json({ status: 'completed', report: r.report }); return; }
+      if (r.status === 'no_new_evidence') { res.json({ status: 'no_new_evidence' }); return; }
+      if (r.status === 'below_study_threshold') { res.json({ status: 'below_study_threshold', studyMinutes: r.studyMinutes, requiredMinutes: r.requiredMinutes }); return; }
+      if (r.status === 'busy') { res.status(409).json({ error: 'review_running', message: 'A review is already running.' }); return; }
+      const http = r.code === 'ai_timeout' ? 504 : r.code === 'ai_rate_limited' ? 429 : r.code === 'ai_unavailable' ? 503 : 502;
+      res.status(http).json({ error: r.code, message: 'The review could not be completed. Your previous review is unchanged, and the same evidence will be used next time.', previousKept: true });
+    } catch (err) { next(err); }
   });
 });
 
@@ -88,15 +91,7 @@ learningReviewRouter.post('/judgments', async (req: Request, res: Response): Pro
     return;
   }
   const userId = req.user!.id;
-  const saved = await prisma.$transaction(async (tx) => {
-    const existing = await tx.userDocument.findUnique({ where: { userId_key: { userId, key: JUDGMENTS_KEY } } });
-    const judgments = normalizeJudgments((existing?.data as any)?.judgments);
-    if (clear) delete judgments[patternKey];
-    else judgments[patternKey] = { judgment: judgment as HumanJudgment, at: new Date().toISOString() };
-    if (existing) await tx.userDocument.update({ where: { id: existing.id }, data: { data: { judgments } as any, revision: existing.revision + 1 } });
-    else await tx.userDocument.create({ data: { userId, key: JUDGMENTS_KEY, data: { judgments } as any } });
-    return judgments[patternKey] || null;
-  });
+  const saved = await saveHumanJudgment(userId, patternKey, clear ? null : judgment as HumanJudgment);
   res.json({ success: true, patternKey, judgment: saved ? saved.judgment : null, at: saved ? saved.at : null });
 });
 

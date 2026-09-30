@@ -371,7 +371,7 @@ describe('Speaking privacy and review-safe SAY IT', () => {
   const app = read('public/app.js'), media = read('public/media.js'), sync = read('public/sync.js');
 
   it('keeps raw audio in IndexedDB only and syncs metadata only', () => {
-    expect(media).toContain("indexedDB.open(DB, 1)");
+    expect(media).toContain("indexedDB.open(name, 1)");
     expect(media).not.toContain('localStorage');
     expect(sync).toContain("docs['speaking'] = { attempts: S.sp || [] }");
     const push = app.match(/S\.sp\.push\(\{[^}]+\}\)/)![0];

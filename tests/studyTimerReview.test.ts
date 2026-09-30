@@ -125,10 +125,11 @@ describe('Study Timer · rules: manual, no maximum, abandoned sessions end at th
     expect(ST.secondsSince(m, null, null)).toBe(1200 + 1500);         // s1dup overlaps s1
   });
 
-  it('merge: a stale copy that ended a session does not beat the device that kept it alive; a manual Pause does', () => {
+  it('merge: finalized sessions cannot be resurrected by a later heartbeat', () => {
     const live = { activeSession: { id: 'x', startedAt: '2026-09-30T09:00:00.000Z', lastSeenAt: '2026-09-30T10:30:00.000Z', confirmedAt: '2026-09-30T09:00:00.000Z' }, sessions: [] };
     const staleClosed = { activeSession: null, sessions: [{ id: 'x', startedAt: '2026-09-30T09:00:00.000Z', endedAt: '2026-09-30T09:10:00.000Z', durationSeconds: 600, endReason: 'stale' }] };
-    expect(ST.merge(staleClosed, live).activeSession.id).toBe('x');
+    expect(ST.merge(staleClosed, live).activeSession).toBeNull();
+    expect(ST.merge(live, staleClosed).activeSession).toBeNull();
     const paused = { activeSession: null, sessions: [{ ...staleClosed.sessions[0], endReason: 'manual' }] };
     const m = ST.merge(paused, live);
     expect(m.activeSession).toBeNull();

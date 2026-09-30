@@ -61,7 +61,7 @@ async function signIn(p, email) {
   await p.cmd('Page.reload'); await sleep(900);
   return p.waitFor(`!!window.KLANG_CHAT && !document.body.classList.contains('gated')`, 15000);
 }
-const convs = p => p.eval(`JSON.parse(localStorage.getItem(${JSON.stringify('klang.mind.v1')}) || '{}').conversations || {}`);
+const convs = p => p.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key(${JSON.stringify('klang.mind.v1')})) || '{}').conversations || {}`);
 const serverDocs = p => p.eval(`fetch('/api/docs', { credentials: 'include' }).then(r => r.json()).then(d => d.documents.filter(x => x.key.startsWith('conversation:')))`);
 const layout = p => p.eval(`(() => {
   const vw = document.documentElement.clientWidth;
@@ -200,16 +200,16 @@ try {
   const acts = await A.eval(`[...document.querySelectorAll('.talk-review .rv-cat')].map(c => ({ cat: c.querySelector('.rv-cat-k').className, buttons: [...c.querySelectorAll('.rv-act')].map(b => b.textContent.trim()) }))`);
   const errCat = acts.find(a => a.cat.includes('cat-error')), regCat = acts.find(a => a.cat.includes('cat-register'));
   check('Error Log offered only for the error; no Language Bank action anywhere', errCat && errCat.buttons.includes("ADD TO ERROR LOG") && regCat && regCat.buttons.length === 0 && await A.eval(`!document.querySelector('[data-cc^="bank"]') && !/LANGUAGE BANK/i.test(document.querySelector('.talk-review').innerText)`), JSON.stringify(acts));
-  const nothingYet = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem("klang.mind.v1")); return (s.errs || []).filter(e => e.source === 'character_conversation').length + (s.bank || []).filter(b => String(b.ref || '').startsWith('conversation:')).length; })()`);
+  const nothingYet = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); return (s.errs || []).filter(e => e.source === 'character_conversation').length + (s.bank || []).filter(b => String(b.ref || '').startsWith('conversation:')).length; })()`);
   check('nothing is saved automatically', nothingYet === 0, String(nothingYet));
   await A.eval(`[...document.querySelectorAll('.talk-review .rv-cat')].find(c => c.querySelector('.cat-error')).querySelector('.rv-act').click()`);
   await A.eval(`[...document.querySelectorAll('.talk-review .rv-cat')].find(c => c.querySelector('.cat-error')).querySelector('.rv-act').click()`);
-  const saved = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem("klang.mind.v1")); return { errs: (s.errs || []).filter(e => e.source === 'character_conversation'), bank: (s.bank || []).filter(b => String(b.ref || '').startsWith('conversation:')) }; })()`);
+  const saved = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); return { errs: (s.errs || []).filter(e => e.source === 'character_conversation'), bank: (s.bank || []).filter(b => String(b.ref || '').startsWith('conversation:')) }; })()`);
   check('Error Log entry saved once, in the product\'s own shape', saved.errs.length === 1 && saved.errs[0].mine === "since years" && !!saved.errs[0].ref, JSON.stringify(saved.errs));
   check('nothing saved to the retired Language Bank', saved.bank.length === 0, JSON.stringify(saved.bank));
   await A.cmd('Page.reload'); await sleep(1500); await A.waitFor(`!!document.querySelector('.talk-review')`, 10000);
   check('after refresh the saved action stays marked as saved', await A.eval(`[...document.querySelectorAll('.rv-act')].filter(b => b.disabled).length >= 1`));
-  const prof = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem("klang.mind.v1")); const P = window.KLANG_PROFILE; if (!P) return null; return (() => { const ev = P.harvestEvidence(s, { units: window.KLANG.units }).filter(e => e.source === 'character_conversation'); return { count: ev.length, spoken: ev.some(e => e.contributions.spoken_production !== undefined) }; })(); })()`);
+  const prof = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); const P = window.KLANG_PROFILE; if (!P) return null; return (() => { const ev = P.harvestEvidence(s, { units: window.KLANG.units }).filter(e => e.source === 'character_conversation'); return { count: ev.length, spoken: ev.some(e => e.contributions.spoken_production !== undefined) }; })(); })()`);
   check('the real Profile engine in the page counts the conversation once, as written evidence', prof && prof.count === 1 && !prof.spoken, JSON.stringify(prof));
   await A.goto(`${BASE}/#errors`); await sleep(400);
   check('the entry appears on the Error Log page', await A.eval(`document.querySelector('#main').innerHTML.includes("since years")`));

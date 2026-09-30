@@ -28,8 +28,17 @@ function getSenderId(req: Request): string | undefined {
 
 const documentKeyPattern = /^(unit:\d{2}|review:[1-7]|conversation:[A-Za-z0-9_-]{8,96}|glossary|language-bank|error-log|bookmarks|portfolio|speaking|current-affairs|progress|english-profile|study-timer)$/;
 
+const timestamp = z.string().refine(v => Number.isFinite(Date.parse(v)), 'Invalid timestamp');
+const timerSchema = z.object({
+  finalizedIds: z.array(z.string().min(1)).optional(),
+  activeSession: z.object({ id: z.string().min(1), startedAt: timestamp, lastSeenAt: timestamp.optional(), confirmedAt: timestamp.optional() }).nullable().optional(),
+  sessions: z.array(z.object({ id: z.string().min(1).optional(), startedAt: timestamp, endedAt: timestamp, durationSeconds: z.number().finite().nonnegative(), endReason: z.string().optional() }).refine(s => Date.parse(s.endedAt) >= Date.parse(s.startedAt))).optional(),
+});
+
 /** Conversation documents are validated and append-only on the server (turns, trace, frozen end/review). */
 async function conversationRejection(userId: string, key: string, data: unknown, baseRevision: number | null | undefined): Promise<string[]> {
+  if (data === null && key !== 'english-profile') return ['invalid_document'];
+  if (key === 'study-timer') return timerSchema.safeParse(data).success ? [] : ['invalid_timer'];
   if (!key.startsWith('conversation:')) return [];
   const stored = await getUserDocument(userId, key);
   // Append-only is checked against the copy this write would replace. With a stale base the
@@ -39,12 +48,14 @@ async function conversationRejection(userId: string, key: string, data: unknown,
 }
 
 function sendConversationRejection(res: Response, problems: string[]) {
+  if (problems.includes('invalid_document')) { res.status(400).json({ error: 'validation_error', message: 'Document data must be an object.' }); return; }
+  if (problems.includes('invalid_timer')) { res.status(400).json({ error: 'validation_error', message: 'Invalid study timer.' }); return; }
   const invalid = problems.some(p => p.startsWith('invalid_conversation') || p === 'conversation_key_mismatch');
   res.status(invalid ? 400 : 409).json({ error: invalid ? 'invalid_conversation' : 'conversation_write_rejected', message: 'Conversation history is append-only.', problems });
 }
 
 const docPayloadSchema = z.object({
-  data: z.any(),
+  data: z.record(z.string(), z.unknown()).nullable(),
   baseRevision: z.number().int().nonnegative().nullable().optional(),
 });
 
@@ -52,7 +63,7 @@ const batchPayloadSchema = z.object({
   documents: z.array(
     z.object({
       key: z.string().regex(documentKeyPattern, 'Invalid document key format'),
-      data: z.any(),
+      data: z.record(z.string(), z.unknown()).nullable(),
       baseRevision: z.number().int().nonnegative().nullable().optional(),
     })
   ),
@@ -60,7 +71,7 @@ const batchPayloadSchema = z.object({
 
 const resolveConflictSchema = z.object({
   key: z.string().regex(documentKeyPattern, 'Invalid document key format'),
-  resolvedData: z.any(),
+  resolvedData: z.record(z.string(), z.unknown()).nullable(),
   expectedServerRevision: z.number().int().positive(),
   resolutionType: z.string().default('merged'),
 });
@@ -78,7 +89,7 @@ syncRouter.get('/docs', async (req: Request, res: Response): Promise<void> => {
       documents,
     });
   } catch (err) {
-    console.error('Error fetching documents:', err);
+    console.error('Error fetching documents:', (err as Error)?.name);
     res.status(500).json({ error: 'internal_error', message: 'Failed to fetch documents' });
   }
 });
@@ -104,7 +115,7 @@ syncRouter.get('/docs/:key', async (req: Request, res: Response): Promise<void> 
     }
     res.json({ success: true, doc });
   } catch (err) {
-    console.error('Error fetching document:', err);
+    console.error('Error fetching document:', (err as Error)?.name);
     res.status(500).json({ error: 'internal_error', message: 'Failed to fetch document' });
   }
 });
@@ -152,7 +163,7 @@ syncRouter.put('/docs/:key', requireNonDemo('Saving documents', 'demo_read_only'
       doc: result.doc,
     });
   } catch (err) {
-    console.error('Error saving document:', err);
+    console.error('Error saving document:', (err as Error)?.name);
     res.status(500).json({ error: 'internal_error', message: 'Failed to save document' });
   }
 });
@@ -191,7 +202,7 @@ syncRouter.post('/sync/batch', requireNonDemo('Batch document synchronization', 
       hasConflicts: conflicts.length > 0,
     });
   } catch (err) {
-    console.error('Error in batch sync:', err);
+    console.error('Error in batch sync:', (err as Error)?.name);
     res.status(500).json({ error: 'internal_error', message: 'Batch sync failed' });
   }
 });
@@ -234,7 +245,7 @@ syncRouter.post('/sync/resolve-conflict', requireNonDemo('Conflict resolution', 
       doc: result.doc,
     });
   } catch (err: any) {
-    console.error('Error resolving conflict:', err);
+    console.error('Error resolving conflict:', (err as Error)?.name);
     res.status(500).json({ error: 'internal_error', message: 'Failed to resolve conflict' });
   }
 });

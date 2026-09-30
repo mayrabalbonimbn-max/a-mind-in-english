@@ -91,8 +91,8 @@
     el.textContent = '';
     setTimeout(() => { el.textContent = text; }, 30);
   }
-  const DRAFT_KEY = `klang.${PRODUCT}.talkdraft.v1`;
-  const CLIENT_KEY = `klang.${PRODUCT}.talkclient.v1`;
+  const DRAFT_KEY = window.KLANG_OWNERSHIP.key(`klang.${PRODUCT}.talkdraft.v1`);
+  const CLIENT_KEY = window.KLANG_OWNERSHIP.key(`klang.${PRODUCT}.talkclient.v1`);
 
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const paras = s => esc(s).split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');

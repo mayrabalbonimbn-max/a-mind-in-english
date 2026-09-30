@@ -258,8 +258,10 @@ aiRouter.post('/feedback', requireNonDemoAi, async (req: Request, res: Response)
         } });
         analysisId = row.id; createdAt = row.createdAt.toISOString();
       } catch (e) {
-        // The feedback is still returned (and kept in the portfolio); only the server copy is missing
+        // A successful Main Write must have a durable historical snapshot.
         console.error(`[ai] main-write snapshot not saved unit=${unit} task=${taskId} err=${(e as Error)?.name}`);
+        res.status(503).json({ error: 'snapshot_not_saved', message: 'The analysis could not be saved. Your draft is unchanged. Please try again later.' });
+        return;
       }
       res.json({
         success: true,

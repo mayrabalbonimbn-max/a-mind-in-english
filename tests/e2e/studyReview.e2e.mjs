@@ -85,32 +85,32 @@ try {
   const running = await A.eval(`document.querySelector('#side-timer').innerText`);
   check('desktop running: "N min today · mm:ss" and "Pause ⏸"', /\d+ min today · 00:0[1-9]/.test(running) && /Pause ⏸/.test(running), running.replace(/\n/g, ' / '));
   await A.shot('02-desktop-timer-running');
-  const st1 = await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1')).study`);
+  const st1 = await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study`);
   check('start persisted with heartbeat fields', !!(st1.activeSession && st1.activeSession.lastSeenAt && st1.activeSession.confirmedAt), JSON.stringify(st1.activeSession));
   await A.cmd('Page.reload'); await sleep(1500);
   await A.waitFor(`!!document.querySelector('#side-timer .timer-toggle-btn')`, 10000);
-  const afterReload = await A.eval(`({ id: JSON.parse(localStorage.getItem('klang.mind.v1')).study.activeSession?.id, label: document.querySelector('#side-timer').innerText })`);
+  const afterReload = await A.eval(`({ id: JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study.activeSession?.id, label: document.querySelector('#side-timer').innerText })`);
   check('refresh: the same session is still running', afterReload.id === st1.activeSession.id && /Pause/.test(afterReload.label), JSON.stringify(afterReload));
   await sleep(4000);
   await click(A, '#side-timer [data-act="timer-toggle"]');
   await sleep(300);
-  const st2 = await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1')).study`);
+  const st2 = await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study`);
   check('pause: session closed with its real duration', !st2.activeSession && st2.sessions.length === 1 && st2.sessions[0].durationSeconds >= 5 && st2.sessions[0].endReason === 'manual', JSON.stringify(st2.sessions));
   await A.waitFor(`document.querySelector('[data-sync-status]')?.innerText.includes('Saved to cloud')`, 10000);
   const cloud = await A.eval(`fetch('/api/docs/study-timer', { credentials: 'include' }).then(r => r.json())`);
   check('sync: the session reached the cloud', cloud?.doc?.data?.sessions?.[0]?.id === st2.sessions[0].id, JSON.stringify(cloud?.doc?.data || cloud).slice(0, 160));
 
   /* Reopen after the app was closed for hours with the timer on: ends at the last heartbeat */
-  const stale = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem('klang.mind.v1')); const now = Date.now(); s.study.activeSession = { id: 'st_e2e_stale', startedAt: new Date(now - 5 * ${H}).toISOString(), lastSeenAt: new Date(now - 5 * ${H} + 40 * 60000).toISOString(), confirmedAt: new Date(now - 5 * ${H}).toISOString() }; localStorage.setItem('klang.mind.v1', JSON.stringify(s)); return true; })()`);
+  const stale = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); const now = Date.now(); s.study.activeSession = { id: 'st_e2e_stale', startedAt: new Date(now - 5 * ${H}).toISOString(), lastSeenAt: new Date(now - 5 * ${H} + 40 * 60000).toISOString(), confirmedAt: new Date(now - 5 * ${H}).toISOString() }; localStorage.setItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'), JSON.stringify(s)); return true; })()`);
   await A.cmd('Page.reload'); await sleep(2200);
-  const st3 = await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1')).study`);
+  const st3 = await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study`);
   const staleSession = st3.sessions.find(s => s.id === 'st_e2e_stale');
   check('reopen hours later: session ended at the last heartbeat (40 min kept, the rest not counted)', stale && !st3.activeSession && staleSession && staleSession.durationSeconds === 2400 && staleSession.endReason === 'stale', JSON.stringify(staleSession));
   check('the learner is told what was not counted', /not counted/.test(await toastText(A)), await toastText(A));
   await A.shot('03-desktop-stale-notice');
 
   /* Long session: "still studying?" check-in, confirmed → keeps counting (no cap) */
-  await A.eval(`(() => { const s = JSON.parse(localStorage.getItem('klang.mind.v1')); const now = Date.now(); s.study.activeSession = { id: 'st_e2e_long', startedAt: new Date(now - 4.5 * ${H}).toISOString(), lastSeenAt: new Date(now - 30000).toISOString(), confirmedAt: new Date(now - 95 * 60000).toISOString() }; localStorage.setItem('klang.mind.v1', JSON.stringify(s)); })()`);
+  await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); const now = Date.now(); s.study.activeSession = { id: 'st_e2e_long', startedAt: new Date(now - 4.5 * ${H}).toISOString(), lastSeenAt: new Date(now - 30000).toISOString(), confirmedAt: new Date(now - 95 * 60000).toISOString() }; localStorage.setItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'), JSON.stringify(s)); })()`);
   await A.cmd('Page.reload'); await sleep(2500);
   check('check-in card appears after 90 unconfirmed minutes', await A.waitFor(`!document.querySelector('#study-checkin').hidden`, 5000));
   const ask = await A.eval(`document.querySelector('#study-checkin').innerText`);
@@ -120,7 +120,7 @@ try {
   await sleep(1300);
   await click(A, '#side-timer [data-act="timer-toggle"]');
   await sleep(300);
-  const long = (await A.eval(`JSON.parse(localStorage.getItem('klang.mind.v1')).study`)).sessions.find(s => s.id === 'st_e2e_long');
+  const long = (await A.eval(`JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study`)).sessions.find(s => s.id === 'st_e2e_long');
   check('a confirmed 270-minute session is kept in full (no cap)', long && long.durationSeconds >= 270 * 60 && long.endReason === 'manual', JSON.stringify(long));
   await A.waitFor(`document.querySelector('[data-sync-status]')?.innerText.includes('Saved to cloud')`, 10000);
 
@@ -192,19 +192,27 @@ try {
     const tb = await A.eval(`(() => { const b = document.querySelector('#topbar-timer .timer-btn'); return { shown: getComputedStyle(document.querySelector('#topbar')).display !== 'none' && !!b && b.offsetWidth > 0, text: b && b.innerText }; })()`);
     check(`${w}px: timer in the top bar`, tb.shown, JSON.stringify(tb));
     await click(A, '#topbar-timer [data-act="timer-toggle"]'); await sleep(1300);
-    check(`${w}px: start from the top bar`, await A.eval(`!!JSON.parse(localStorage.getItem('klang.mind.v1')).study.activeSession && document.querySelector('#topbar-timer .timer-btn').classList.contains('on')`));
+    check(`${w}px: start from the top bar`, await A.eval(`!!JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study.activeSession && document.querySelector('#topbar-timer .timer-btn').classList.contains('on')`));
     let l = await layout(A);
     check(`${w}px home with timer running: no horizontal overflow`, !l.over, JSON.stringify(l));
     await A.shot(`${w}-home-timer`);
     // check-in card on a phone
-    await A.eval(`(() => { const s = JSON.parse(localStorage.getItem('klang.mind.v1')); s.study.activeSession.confirmedAt = new Date(Date.now() - 100 * 60000).toISOString(); s.study.activeSession.startedAt = s.study.activeSession.confirmedAt; localStorage.setItem('klang.mind.v1', JSON.stringify(s)); })()`);
+    // Seed both authoritative and local fixture copies: changing only the client cannot
+    // rewind a newer server confirmation (a real concurrency invariant).
+    await A.waitFor(`document.querySelector('[data-sync-status]')?.innerText.includes('Saved to cloud')`, 10000);
+    const fixtureStudy = await A.eval(`(() => { const s = JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))); s.study.activeSession.confirmedAt = new Date(Date.now() - 100 * 60000).toISOString(); s.study.activeSession.startedAt = s.study.activeSession.confirmedAt; localStorage.setItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'), JSON.stringify(s)); return s.study; })()`);
+    const fixtureUser = await prisma.user.findUniqueOrThrow({ where: { email } });
+    const seededTimer = await prisma.userDocument.update({ where: { userId_key: { userId: fixtureUser.id, key: 'study-timer' } }, data: { data: fixtureStudy, revision: { increment: 1 } } });
+    // The seeded local copy is the exact DB revision, so reloading cannot upload it
+    // with the previous revision before hydration has completed.
+    await A.eval(`(() => { const k = window.KLANG_OWNERSHIP.key('klang.mind.revs.v1'); const revs = JSON.parse(localStorage.getItem(k) || '{}'); revs['study-timer'] = ${seededTimer.revision}; localStorage.setItem(k, JSON.stringify(revs)); })()`);
     await A.cmd('Page.reload'); await sleep(2500);
     await A.waitFor(`!document.querySelector('#study-checkin').hidden`, 5000);
     l = await layout(A);
     check(`${w}px check-in card: visible, no overflow`, await A.eval(`!document.querySelector('#study-checkin').hidden && document.querySelector('#study-checkin').getBoundingClientRect().right <= document.documentElement.clientWidth`) && !l.over, JSON.stringify(l));
     await A.shot(`${w}-checkin`);
     await click(A, '#study-checkin [data-act="timer-toggle"]'); await sleep(500);
-    check(`${w}px: pause from the check-in`, await A.eval(`!JSON.parse(localStorage.getItem('klang.mind.v1')).study.activeSession`));
+    check(`${w}px: pause from the check-in`, await A.eval(`!JSON.parse(localStorage.getItem(window.KLANG_OWNERSHIP.key('klang.mind.v1'))).study.activeSession`));
     await go(A, '#learning', '#lr-page');
     await A.waitFor(`!!document.querySelector('#lr-controls [data-lr="run"]')`, 8000);
     l = await layout(A);
