@@ -1682,7 +1682,8 @@
       ${head('Suggested Error Log entries')}${(f.suggestedErrorLog || []).map((x, i) => `<div class="fbc"><s>${esc(x.mine)}</s><ins>${esc(x.corr)}</ins><em>${esc(x.why)}${x.ex ? ' · ' + esc(x.ex) : ''}</em><button class="btn line sm" data-act="fb2err" data-pk="${pk}" data-id="${esc(id)}" data-i="${i}">add to Error Log</button></div>`).join('') || '<p class="muted">None.</p>'}
       ${head('Priorities for the next draft')}<ol>${(f.nextDraftPriorities || []).map(x => `<li>${esc(x)}</li>`).join('')}</ol>
       <div class="fb-export-acts" style="display:flex;gap:8px;margin:14px 0 6px;flex-wrap:wrap">
-        <a class="btn line sm" href="/api/ai/feedback/${esc(u)}/${esc(tid)}/${esc(id)}/export?format=pdf" download>export PDF →</a>
+        <a class="btn line sm" href="/api/ai/feedback/${esc(u)}/${esc(tid)}/${esc(id)}/export?format=html" target="_blank" rel="noopener">open · print as PDF ↗</a>
+        <a class="btn line sm" href="/api/ai/feedback/${esc(u)}/${esc(tid)}/${esc(id)}/export?format=html&amp;download=1" download>download HTML ↓</a>
         <a class="btn line sm" href="/api/ai/feedback/${esc(u)}/${esc(tid)}/${esc(id)}/export?format=md" download>export Markdown →</a>
       </div>
       <p class="muted" style="font-size:13px;margin-top:14px">Your drafts are never changed by feedback. This feedback is saved in your Writing Portfolio.</p>

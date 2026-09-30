@@ -219,5 +219,22 @@ describe('Main Write Feedback · Model routing, prompt rules, and exports', () =
     expect(jsonRes.body.unit).toBe('04');
     expect(jsonRes.body.taskId).toBe('04w2');
     expect(jsonRes.body.model).toBe('gpt-5.6-sol');
+
+    // Test HTML export: readable page, opened inline or downloaded, with its own strict CSP
+    const htmlRes = await request(app)
+      .get(`/api/ai/feedback/04/04w2/${feedbackId}/export?format=html`)
+      .set('Cookie', cookie);
+    expect(htmlRes.status).toBe(200);
+    expect(htmlRes.headers['content-type']).toContain('text/html');
+    expect(htmlRes.headers['content-disposition']).toMatch(/^inline;/);
+    expect(htmlRes.headers['content-security-policy']).toMatch(/script-src 'nonce-[A-Za-z0-9+/=]+'/);
+    expect(htmlRes.text).toContain('<!doctype html>');
+    expect(htmlRes.text).toContain('It goes without saying');
+    expect(htmlRes.text).toContain('Awkward · less natural');
+    expect(htmlRes.text).toContain('Tighten transitions');
+    const dl = await request(app)
+      .get(`/api/ai/feedback/04/04w2/${feedbackId}/export?format=html&download=1`)
+      .set('Cookie', cookie);
+    expect(dl.headers['content-disposition']).toBe('attachment; filename="feedback-unit04-04w2.html"');
   });
 });

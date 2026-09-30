@@ -445,6 +445,15 @@ describe('Learning Review · API', () => {
     expect(jsonRes.status).toBe(200);
     expect(jsonRes.body.runId).toBe(r.runId);
     expect(jsonRes.body.workedOn).toBeDefined();
+
+    // HTML export: same saved report, readable, no internal ids, other users cannot read it
+    const htmlRes = await request(app).get(`/api/learning-review/runs/${r.runId}/export?format=html`).set('Cookie', u.cookie);
+    expect(htmlRes.status).toBe(200);
+    expect(htmlRes.headers['content-type']).toContain('text/html');
+    for (const s of ['Learning Review', 'Recurring patterns', 'AI interpretation', 'Next session', 'Proposed adaptations', 'Strong claims without hedging', 'Only one unit studied']) expect(htmlRes.text).toContain(s);
+    expect(htmlRes.text).toContain('Claims “with” curly quotes');
+    expect(htmlRes.text).not.toContain(r.runId);
+    expect((await request(app).get(`/api/learning-review/runs/${r.runId}/export?format=html`).set('Cookie', other.cookie)).status).toBe(404);
   });
 
   it('records human judgments via /api/learning-review/judgments endpoint', async () => {

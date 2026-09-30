@@ -5,6 +5,7 @@ import { config } from '../config';
 import { prisma } from '../prisma';
 import { latestLearningReview, learningReviewAvailable, learningReviewStatus, runLearningReview } from '../services/learningReview/pipeline';
 import { reportPdf, reportMarkdown } from '../services/learningReview/pdf';
+import { renderLearningReviewHtml, sendExportHtml } from '../services/exportHtml';
 import type { LearningReport, HumanJudgment } from '../services/learningReview/merge';
 
 /* Learning Review API. Read the latest report, run the (single) pipeline by hand,
@@ -106,6 +107,10 @@ learningReviewRouter.get('/runs/:id/export', async (req: Request, res: Response)
 
   if (format === 'json') {
     res.json(report);
+    return;
+  }
+  if (format === 'html') {
+    sendExportHtml(res, (nonce) => renderLearningReviewHtml(report, nonce), `learning-review-${report.generatedAt.slice(0, 10)}.html`, req.query.download === '1');
     return;
   }
   if (format === 'md' || format === 'markdown') {

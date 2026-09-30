@@ -97,7 +97,8 @@
       <header class="lr-head"><div class="kl">Learning review</div><h2>${esc(day(r.generatedAt))}</h2><p class="muted">${esc(period)} · ${plural(e.total, 'new item')} (${e.byOrigin.learner} of your own work, ${e.byOrigin.check} checked, ${e.byOrigin.record} records, ${e.byOrigin.ai} earlier AI feedback)${e.deferred ? ` · ${e.deferred} more next time` : ''}</p>
         <p class="lr-legend"><span class="lr-tag fact">Fact</span> what you did or a check recorded <span class="lr-tag ai">AI interpretation</span> what the model reads in it <span class="lr-tag prop">Proposal</span> a suggestion, never applied</p>
         <div class="lr-head-acts" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-          <a class="btn line sm" data-lr="pdf" href="/api/learning-review/runs/${esc(r.runId)}/export?format=pdf" download>export PDF →</a>
+          <a class="btn line sm" data-lr="html" href="/api/learning-review/runs/${esc(r.runId)}/export?format=html" target="_blank" rel="noopener">open · print as PDF ↗</a>
+          <a class="btn line sm" data-lr="html-dl" href="/api/learning-review/runs/${esc(r.runId)}/export?format=html&amp;download=1" download>download HTML ↓</a>
           <a class="btn line sm" data-lr="md" href="/api/learning-review/runs/${esc(r.runId)}/export?format=md" download>export Markdown →</a>
         </div></header>
       ${body}</div>`;

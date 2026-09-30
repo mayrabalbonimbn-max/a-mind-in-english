@@ -9,6 +9,7 @@ import { buildExplainPrompt, buildExplainQuestionPrompt, buildFeedbackPrompt, bu
 import { ExplainQuestionSchema, ExplainSchema, InterpretItemFeedbackSchema, LightLanguageFeedbackSchema, ListeningFeedbackSchema, MainWriteFeedbackSchema, OutlineFeedbackSchema, REGISTER_KEYS, RegisterCompareSchema, SpeakingFeedbackSchema, TeacherLensFeedbackSchema, WritingFeedbackSchema } from '../services/ai/schemas';
 import { getUnit, getWritingTask } from '../services/content';
 import { ExportFeedbackData, generateFeedbackMarkdown, generateFeedbackPdf } from '../services/ai/feedbackExport';
+import { renderMainWriteHtml, sendExportHtml } from '../services/exportHtml';
 
 // AI is only ever called from an explicit user action (Get feedback / Explain).
 // Everything the student typed is already saved locally and synced before this runs,
@@ -302,6 +303,11 @@ aiRouter.get('/feedback/:unit/:taskId/:id/export', async (req: Request, res: Res
     feedback: entry.f,
     revisionExists: hasRevision,
   };
+
+  if (format === 'html') {
+    sendExportHtml(res, (nonce) => renderMainWriteHtml(exportData, nonce), `feedback-unit${unit}-${taskId}.html`, req.query.download === '1');
+    return;
+  }
 
   if (format === 'md' || format === 'markdown' || format === 'json') {
     if (format === 'json') {
