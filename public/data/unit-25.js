@@ -273,7 +273,7 @@
     }
   });
 
-  K.units['25'].listening = [
+  K.units['25'].listening = K.pendingListening('25', [
     {
       id: '25l1',
       title: 'Dialogue: The Anatomy of a Medical Headline',
@@ -346,9 +346,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['25'].speaking = {
+  K.units['25'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When you read a surprising scientific or health claim online, how do you usually check whether it is reliable?`, guide: `Discuss checking primary sources, looking for institutional consensus, evaluating author credentials, and checking sample sizes.` },
       { q: `Have you ever tried a product or diet because a friend gave it a glowing personal recommendation? Did it work?`, guide: `Reflect on the power of personal testimony versus individual variance and placebo effects.` },
@@ -376,5 +376,5 @@
       discourse: `Coherent, structured argumentation deconstructing methodological claims with precision and academic nuance.`,
       vocabulary: `Effective use of terms such as 'hierarchy of evidence', 'confounding variables', 'selection bias', 'meta-analysis', and 'probabilistic calibration'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

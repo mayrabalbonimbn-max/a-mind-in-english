@@ -4,8 +4,17 @@ import { createRateLimiter } from '../middleware/rateLimit';
 import { config } from '../config';
 import { prisma } from '../prisma';
 import { latestLearningReview, learningReviewAvailable, learningReviewStatus, runLearningReview } from '../services/learningReview/pipeline';
+import { pdfWithFallback } from '../services/pdf/render';
+import { learningReviewHtml } from '../services/pdf/learningReviewHtml';
 import { reportPdf, reportMarkdown } from '../services/learningReview/pdf';
+import { JUDGMENTS, normalizeJudgments, withCurrentJudgments } from '../services/learningReview/merge';
 import type { LearningReport, HumanJudgment } from '../services/learningReview/merge';
+
+const JUDGMENTS_KEY = 'learning-judgments';
+async function currentJudgments(userId: string) {
+  const doc = await prisma.userDocument.findUnique({ where: { userId_key: { userId, key: JUDGMENTS_KEY } } });
+  return normalizeJudgments((doc?.data as any)?.judgments);
+}
 
 /* Learning Review API. Read the latest report, run the (single) pipeline by hand,
    record human judgments on hypotheses, export PDF or Markdown.
@@ -25,20 +34,22 @@ const runLimiter = createRateLimiter({
 
 learningReviewRouter.get('/', async (req: Request, res: Response) => {
   if (req.user!.isDemo) {
-    res.json({ isDemo: true, available: false, report: null, lastRun: null, pending: 0, running: false, studyMinutes: 0, nightlyEligible: false });
+    res.json({ isDemo: true, available: false, report: null, lastRun: null, pending: 0, running: false, studyMinutes: 0, nightlyEligible: false, nightlyEnabled: false });
     return;
   }
   try {
-    const [{ report, lastRun }, status] = await Promise.all([latestLearningReview(req.user!.id), learningReviewStatus(req.user!.id)]);
+    const [{ report, lastRun }, status, judgments] = await Promise.all([latestLearningReview(req.user!.id), learningReviewStatus(req.user!.id), currentJudgments(req.user!.id)]);
     res.json({
       isDemo: false,
       available: learningReviewAvailable(),
-      report,
+      // The stored report with the learner's current judgments (the judgments store is the source)
+      report: report ? withCurrentJudgments(report, judgments) : null,
       lastRun,
       pending: status.pending,
       running: status.running,
       studyMinutes: status.studyMinutes,
       nightlyEligible: status.nightlyEligible,
+      nightlyEnabled: config.learningReview.nightlyEnabled,
     });
   } catch (err) {
     console.error('[learning-review] status failed', (err as Error)?.name);
@@ -65,34 +76,28 @@ learningReviewRouter.post('/run', requireNonDemo('The Learning Review', 'demo_ai
   });
 });
 
-// Human feedback on AI hypotheses (Agree / Disagree / Not sure)
+// Human feedback on AI hypotheses: agree | disagree | not_sure, or null to clear.
+// A judgment is about the interpretation only: it never changes evidence, the stored report or facts.
+const PATTERN_KEY = /^[A-Za-z0-9_.:-]{1,120}$/;
 learningReviewRouter.post('/judgments', async (req: Request, res: Response): Promise<void> => {
   if (req.user!.isDemo) { res.status(403).json({ error: 'demo_disabled', message: 'Judgments disabled in Demo Mode.' }); return; }
   const { patternKey, judgment } = req.body || {};
-  if (!patternKey || !['agree', 'disagree', 'not_sure'].includes(judgment)) {
+  const clear = judgment === null;
+  if (typeof patternKey !== 'string' || !PATTERN_KEY.test(patternKey) || (!clear && !JUDGMENTS.includes(judgment))) {
     res.status(400).json({ error: 'validation_error', message: 'Invalid patternKey or judgment.' });
     return;
   }
-
-  const existing = await prisma.userDocument.findUnique({
-    where: { userId_key: { userId: req.user!.id, key: 'learning-judgments' } },
+  const userId = req.user!.id;
+  const saved = await prisma.$transaction(async (tx) => {
+    const existing = await tx.userDocument.findUnique({ where: { userId_key: { userId, key: JUDGMENTS_KEY } } });
+    const judgments = normalizeJudgments((existing?.data as any)?.judgments);
+    if (clear) delete judgments[patternKey];
+    else judgments[patternKey] = { judgment: judgment as HumanJudgment, at: new Date().toISOString() };
+    if (existing) await tx.userDocument.update({ where: { id: existing.id }, data: { data: { judgments } as any, revision: existing.revision + 1 } });
+    else await tx.userDocument.create({ data: { userId, key: JUDGMENTS_KEY, data: { judgments } as any } });
+    return judgments[patternKey] || null;
   });
-
-  const judgments: Record<string, HumanJudgment> = (existing?.data as any)?.judgments || {};
-  judgments[patternKey] = judgment;
-
-  if (existing) {
-    await prisma.userDocument.update({
-      where: { id: existing.id },
-      data: { data: { judgments }, revision: existing.revision + 1 },
-    });
-  } else {
-    await prisma.userDocument.create({
-      data: { userId: req.user!.id, key: 'learning-judgments', data: { judgments } },
-    });
-  }
-
-  res.json({ success: true, patternKey, judgment });
+  res.json({ success: true, patternKey, judgment: saved ? saved.judgment : null, at: saved ? saved.at : null });
 });
 
 learningReviewRouter.get('/runs/:id/export', async (req: Request, res: Response): Promise<void> => {
@@ -102,7 +107,7 @@ learningReviewRouter.get('/runs/:id/export', async (req: Request, res: Response)
   if (!/^[0-9a-f-]{36}$/.test(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
   const run = await prisma.learningReviewRun.findFirst({ where: { id, userId: req.user!.id, status: 'succeeded' }, select: { report: true } });
   if (!run || !run.report) { res.status(404).json({ error: 'not_found', message: 'Review not found' }); return; }
-  const report = run.report as unknown as LearningReport;
+  const report = withCurrentJudgments(run.report as unknown as LearningReport, await currentJudgments(req.user!.id));
 
   if (format === 'json') {
     res.json(report);
@@ -116,7 +121,7 @@ learningReviewRouter.get('/runs/:id/export', async (req: Request, res: Response)
     return;
   }
 
-  const pdf = reportPdf(report);
+  const pdf = await pdfWithFallback(() => learningReviewHtml(report), 'A Mind in English · Learning Review', () => reportPdf(report));
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="learning-review-${report.generatedAt.slice(0, 10)}.pdf"`);
   res.setHeader('Cache-Control', 'private, no-store');
@@ -129,8 +134,8 @@ learningReviewRouter.get('/runs/:id/pdf', async (req: Request, res: Response) =>
   if (!/^[0-9a-f-]{36}$/.test(id)) { res.status(400).json({ error: 'invalid_id' }); return; }
   const run = await prisma.learningReviewRun.findFirst({ where: { id, userId: req.user!.id, status: 'succeeded' }, select: { report: true } });
   if (!run || !run.report) { res.status(404).json({ error: 'not_found', message: 'Review not found' }); return; }
-  const report = run.report as unknown as LearningReport;
-  const pdf = reportPdf(report);
+  const report = withCurrentJudgments(run.report as unknown as LearningReport, await currentJudgments(req.user!.id));
+  const pdf = await pdfWithFallback(() => learningReviewHtml(report), 'A Mind in English · Learning Review', () => reportPdf(report));
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="learning-review-${report.generatedAt.slice(0, 10)}.pdf"`);
   res.setHeader('Cache-Control', 'private, no-store');

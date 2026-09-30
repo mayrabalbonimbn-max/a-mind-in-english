@@ -276,7 +276,7 @@
     }
   });
 
-  K.units['31'].listening = [
+  K.units['31'].listening = K.pendingListening('31', [
     {
       id: '31l1',
       title: 'Dialogue: The Art of the Scalpel',
@@ -349,9 +349,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['31'].speaking = {
+  K.units['31'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When you read a sad story or watch a movie, do you prefer understated, realistic drama or big, emotional spectacles? Why?`, guide: `Compare the quiet power of understated realism with the emotional catharsis of epic spectacle.` },
       { q: `Why do you think novice writers and social media users love using excessive exclamation points and emotional emojis?`, guide: `Discuss insecurity, fear of being misunderstood, and the desire for instant emotional validation.` },
@@ -379,5 +379,5 @@
       discourse: `Fluent, articulate reflections on literary craft, subtext, and the psychological power of linguistic restraint.`,
       vocabulary: `Effective use of terms such as 'the iceberg theory', 'purple prose', 'radical compression', 'concrete sensory grounding', and 'the humility of subtraction'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

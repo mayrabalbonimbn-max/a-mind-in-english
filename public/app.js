@@ -206,9 +206,9 @@
     home: '<svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-6h4v6"/></svg>',
     gl: '<svg viewBox="0 0 24 24"><path d="M4 5h16M4 10h16M4 15h10M4 20h7"/></svg>'
   };
-  const WM = 'M4 4V96M4 60L58 4M24 40L62 96M84 4V92H130M146 96L190 8L234 96M254 96V4L316 96V4M425.7 23.6A46 46 0 1 0 434 50H394';
-  const wordmark = (c = '#F3EBE3', cls = 'wm') => `<svg class="${cls}" viewBox="-2 -6 446 108" role="img" aria-label="KLANG"><path d="${WM}" fill="none" stroke="${c}" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/></svg>`;
-  const lockup = () => `<svg viewBox="-2 -6 660 108" role="img" aria-label="KLANG, o som da língua"><path d="${WM}" fill="none" stroke="#F3EBE3" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/><g fill="#E8BCC1" font-family="Jost, Futura, sans-serif" font-size="19" font-weight="500" letter-spacing="7"><text x="500" y="22">O SOM</text><text x="500" y="56">DA</text><text x="500" y="90">LÍNGUA</text></g></svg>`;
+  const WM = 'M4 96V4L44 70L84 4V96M112 4V96M140 96V4L202 96V4M230 4H262A46 46 0 0 1 262 96H230Z';
+  const wordmark = (c = '#371B18', cls = 'wm') => `<svg class="${cls}" viewBox="-6 -6 320 108" role="img" aria-label="MIND"><path d="${WM}" fill="none" stroke="${c}" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/></svg>`;
+  const lockup = () => `<svg viewBox="-6 -6 320 108" role="img" aria-label="MIND"><path d="${WM}" fill="none" stroke="#371B18" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/></svg>`;
 
   function toast(msg) {
     const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -228,11 +228,12 @@
   }
 
   /* ── progress ─────────────────────────────── */
+  const SUPPORT_META = /:support(Level)?$/;   // Writing Support choice/use: metadata, not work
   const secDone = (u, s) => !!S.sec[u + ':' + s];
   const unitSecCount = u => STAGES.filter(([s]) => secDone(u, s)).length;
   function unitState(u) {
     if (S.ud[u]) return 'done';
-    if (unitSecCount(u) || Object.keys(S.a).some(k => k.startsWith(u + ':') && S.a[k])) return 'part';
+    if (unitSecCount(u) || Object.keys(S.a).some(k => k.startsWith(u + ':') && S.a[k] && !SUPPORT_META.test(k))) return 'part';
     return '';
   }
   function overall() {
@@ -241,7 +242,7 @@
   }
   const modDone = m => !!S.md[m.id] || (m.units.every(u => S.ud[u.id]) && (!REVIEWS[m.id] || S.rd[m.id]));
   function continueTarget() {
-    if (S.last && /^r[12]$/.test(S.last.u) && REVIEWS[S.last.u.slice(1)]) return `${S.last.u}-${S.last.s || 'retrieve'}`;
+    if (S.last && /^r[1-7]$/.test(S.last.u) && REVIEWS[S.last.u.slice(1)]) return `${S.last.u}-${S.last.s || 'retrieve'}`;
     if (S.last && has(S.last.u)) return `u${S.last.u}-${S.last.s || 'know'}`;
     const first = ALL.find(u => has(u.id) && !S.ud[u.id]) || ALL[0];
     return `u${first.id}-know`;
@@ -302,15 +303,15 @@
       // Task-coverage verdicts only. Older saved checks may carry text-fidelity verdicts (accurate,
       // misunderstood…) that were given without the reading: their comment stays, without a badge.
       let vBadge = '';
-      if (content.verdict === 'developed') vBadge = '<span class="tagp" style="background:#e8f5e9;color:#2e7d32">Developed</span>';
-      else if (content.verdict === 'partial') vBadge = '<span class="tagp" style="background:#fff8e1;color:#b45309">Partial</span>';
-      else if (content.verdict === 'needs_clarification') vBadge = '<span class="tagp" style="background:#e0f2fe;color:#0369a1">Question clarification</span>';
-      else if (content.verdict === 'not_answered') vBadge = '<span class="tagp" style="background:#f1f5f9;color:#475569">Not answered</span>';
+      if (content.verdict === 'developed') vBadge = '<span class="tagp" style="background:var(--success-bg);color:var(--success)">Developed</span>';
+      else if (content.verdict === 'partial') vBadge = '<span class="tagp" style="background:var(--warning-bg);color:var(--warning)">Partial</span>';
+      else if (content.verdict === 'needs_clarification') vBadge = '<span class="tagp" style="background:var(--info-bg);color:var(--info)">Question clarification</span>';
+      else if (content.verdict === 'not_answered') vBadge = '<span class="tagp" style="background:var(--neutral-bg);color:var(--neutral)">Not answered</span>';
 
       html += `<div class="int-content-block"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>Your interpretation:</b> ${vBadge}</div><p>${esc(content.commentary)}</p></div>`;
     }
 
-    html += `<div class="int-lang-block" style="${content ? 'margin-top:10px' : ''}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>Language feedback:</b> <span style="font-size:13px;color:${lang.meaningClear ? '#2e7d32' : '#b45309'}">${lang.meaningClear ? 'Meaning is clear' : 'Meaning could be clearer'}</span></div>`;
+    html += `<div class="int-lang-block" style="${content ? 'margin-top:10px' : ''}"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b>Language feedback:</b> <span style="font-size:13px;color:${lang.meaningClear ? 'var(--success)' : 'var(--warning)'}">${lang.meaningClear ? 'Meaning is clear' : 'Meaning could be clearer'}</span></div>`;
 
     if (lang.naturalVersion) {
       html += `<p style="margin:6px 0 2px;font-size:13.5px;color:var(--cinza)"><b>More natural version:</b></p><div class="model" style="margin-bottom:8px">“${esc(lang.naturalVersion)}”</div>`;
@@ -343,21 +344,32 @@
   }
 
   /* ── writing support: register guide + useful language + writing tips (register.js; local, never AI) ── */
-  function supportHtml(u, it, stage) {
-    const RG = window.KLANG_REGISTER, s = RG && RG.supportFor(u, stage, it);
-    if (!s) return '';
+  // The learner chooses how much language support to have for each activity (High · Medium · Light · Off).
+  // The unit sets only the default; the choice is stored per activity (<unit>:<id>:supportLevel) and is
+  // not a judgment of ability. Choosing a level never opens the panel and never counts as using support.
+  const supportLevelOf = (u, k) => { const RG = window.KLANG_REGISTER, c = S.a[`${k}:supportLevel`]; return RG && RG.LEVELS.includes(c) ? c : (RG ? RG.levelFor(u) : 'light'); };
+  function supportLevelsHtml(k, level) {
+    return `<div class="wslv" role="group" aria-label="Writing support: choose how much language support you want for this task" title="Choose how much language support you want for this task">${window.KLANG_REGISTER.LEVELS.map(l => `<button type="button" class="wslv-o ${l === level ? 'on' : ''}" data-act="wslevel" data-wsk="${esc(k)}" data-level="${l}" aria-pressed="${l === level}">${l[0].toUpperCase() + l.slice(1)}</button>`).join('<span class="wslv-dot" aria-hidden="true">·</span>')}</div>`;
+  }
+  function supportHtml(u, it, stage, open) {
+    const RG = window.KLANG_REGISTER;
+    if (!RG || !RG.profileFor(stage, it)) return '';           // eligibility is unchanged: no profile, no support
+    const k = u + ':' + it.id, level = supportLevelOf(u, k), s = RG.supportFor(u, stage, it, level);
+    const head = `<div class="wsupw" data-wsupw="${esc(k)}" data-u="${esc(u)}" data-stage="${esc(stage)}">${supportLevelsHtml(k, level)}`;
+    if (!s) return `${head}<p class="wsup-off">writing support · off</p></div>`;
     const frames = a => a.length ? `<ul class="wsf">${a.map(x => `<li>“${esc(x)}”</li>`).join('')}</ul>` : '';
     const steps = a => a.length ? `<ol class="wss">${a.map(x => `<li>${esc(x)}</li>`).join('')}</ol>` : '';
     const note = t => t ? `<p class="wsn">${esc(t)}</p>` : '';
     const plan = p => p ? `<div class="wsk">${esc(p.title)}</div>${note(p.lead)}<ul class="wss">${p.steps.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
     const m = s.more;
-    return `<details class="wsup" data-level="${s.level}"><summary>writing support <span aria-hidden="true">→</span></summary><div class="wsb">
+    return `${head}<details class="wsup" data-level="${s.level}" data-wsup="${esc(k)}"${open ? ' open' : ''}><summary>writing support <span aria-hidden="true">→</span></summary><div class="wsb">
       <div class="wsk">Register</div><p class="wsl">${esc(s.label)}</p>${note(s.why)}
       <div class="wsk">Useful language</div>${frames(s.frames)}
-      <div class="wsk">Writing tips</div>${note(s.summary)}${steps(s.steps)}${note(s.note)}
+      <div class="wsk">Writing tips</div>${note(s.summary)}${steps(s.steps)}${s.level === 'light' ? '' : note(s.note)}
+      ${s.level === 'light' && s.note ? `<div class="wsk">Check before you submit</div>${note(s.note)}` : ''}
       ${plan(s.plan)}
       ${m ? `<details class="wsmore"><summary>need more support? <span aria-hidden="true">→</span></summary><div>${note(m.why)}${m.steps.length ? `<div class="wsk">Step by step</div>${steps(m.steps)}` : ''}${note(m.note)}${m.frames.length ? `<div class="wsk">More useful language</div>${frames(m.frames)}` : ''}${plan(m.plan)}</div></details>` : ''}
-      <p class="wsfoot">Frames, not answers: the ideas are yours.</p></div></details>`;
+      <p class="wsfoot">Frames, not answers: the ideas are yours.</p></div></details></div>`;
   }
 
   function renderItem(u, it, num, stage) {
@@ -392,6 +404,8 @@
         <div class="ltable">${(it.pairs || []).map((p, i) => `<div class="lrow" data-row="${k}:${i}" style="grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr)"><b style="font-weight:600">${p[0]}</b><select data-k="${k}:${i}" aria-label="Match"><option value="">choose…</option>${rights.map(r => `<option ${S.a[k + ':' + i] === r ? 'selected' : ''}>${r}</option>`).join('')}</select></div>`).join('')}</div>
         <div class="qact"><button class="btn line sm" data-act="match" data-q="${k}">check answers →</button>${bm}</div></div>`;
       }
+      case 'quote': return `<div class="q" id="q-${k}">${qHead(u, it, num)}<div class="qt">${it.q}</div>${ta(k, 2, 'Copy the phrase from the text…')}
+        <div class="qact"><button class="btn line sm" data-act="check" data-q="${k}">check answer →</button>${bm}</div><div class="fbw" data-fb="${k}"></div></div>`;
       case 'group': return `<div class="qs">${it.lead ? `<p class="sub" style="margin:0">${it.lead}</p>` : ''}${it.items.map((x, i) => renderItem(u, x, (i + 1) + '', stage)).join('')}</div>`;
       default: return '';
     }
@@ -404,12 +418,13 @@
       ${it.support ? (Array.isArray(it.support) ? `<ul class="sup">${it.support.map(s => `<li>${s}</li>`).join('')}</ul>` : `<p class="sup">${it.support}</p>`) : ''}
       ${supportHtml(u, it, stage)}
       ${isLongForm(it) ? lfFlow(k, it) + outlineHtml(k) : ''}
-      ${ta(k, 14, 'Start writing…', 'spellcheck="true"')}
+      ${ta(k, 14, 'Start writing…', draft1Locked(k) ? 'spellcheck="false" readonly aria-readonly="true"' : 'spellcheck="true"')}
       ${wcHtml(k, it.min, it.max)}
+      ${draft1Locked(k) ? draft1LockedNote(k) : ''}
       <div class="qact" style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         ${it.guide ? `<button class="btn line sm" data-act="guide" data-q="${k}">see guidance</button>` : ''}
         <button class="btn line sm" data-act="copyone" data-q="${k}">copy this text</button>
-        ${aiFeedbackBtn(k)}
+        ${draft1Locked(k) ? '' : aiFeedbackBtn(k)}
       </div><div class="fbw" data-fb="${k}"></div>
       <div class="aifb" data-aifb="${k}">${savedFeedbackHtml(k)}</div></div>`;
   }
@@ -446,7 +461,7 @@
   const listeningKey = (u, l, q) => `${u}:li:${l}:${q}`;
   // Recorded audio: exact m:ss of the real file. Not yet recorded: only the planned target.
   const listenLength = l => l.audioReady === false
-    ? `~${Math.max(1, Math.round(l.duration / 60))} min planned`
+    ? (l.duration > 0 ? `~${Math.max(1, Math.round(l.duration / 60))} min planned` : 'audio in production')
     : `${Math.floor(l.duration / 60)}:${String(l.duration % 60).padStart(2, '0')}`;
   function listeningQuestion(u, l, q, i) {
     const k = listeningKey(u, l.id, q.id), submitted = !!S.a[`${u}:li:${l.id}:submitted`], val = S.a[k] || '';
@@ -469,10 +484,15 @@
       const submitted = !!S.a[`${u}:li:${l.id}:submitted`];
       const audioFile = l.file || l.audio || '';
       const audioControl = l.audioReady === false
-        ? `<div class="media-notice" style="padding:10px 14px;background:var(--bg-warm, #f8f6f2);border-left:3px solid var(--accent, #b45309);margin:12px 0;font-size:0.92rem;color:var(--text-muted, #555);"><strong>Audio production in progress</strong> — the studio master is being prepared. You may preview the passes, exercise questions, and submit your answers.</div>`
+        ? `<div class="media-notice" style="padding:10px 14px;background:var(--bg-warm, #f8f6f2);border-left:3px solid var(--accent, #b45309);margin:12px 0;font-size:0.92rem;color:var(--text-muted, #555);"><strong>Audio not recorded yet.</strong> You can read the passes and questions ahead; answering and the transcript open when the recording is ready. Nothing here counts against your progress.</div>`
         : `<audio controls preload="metadata" src="${esc(audioFile)}" data-listen-audio="${l.id}"></audio><p class="media-error" data-audio-error="${l.id}" hidden>Audio unavailable. The activity is preserved; try again after checking the connection or asset.</p>`;
       const passes = Array.isArray(l.passes) ? l.passes : ['First listen · grasp main idea', 'Second listen · track specific details', 'Third listen · examine language and nuances'];
-      return `<section class="listen-card"><div class="wk"><span class="tagp">${esc(l.format || 'Audio')}</span><span class="tago">${esc(l.level || 'C1')} · ${listenLength(l)}</span></div><h3>${esc(l.title)}</h3><ol class="sup">${passes.map(x => `<li>${esc(x)}</li>`).join('')}</ol>${audioControl}<div class="qs">${(l.questions || []).map((q,i) => listeningQuestion(u,l,q,i)).join('')}</div><button class="btn dark" data-act="lisubmit" data-u="${u}" data-lid="${l.id}">${submitted ? 'resubmit answers' : 'submit listening'}</button>${submitted ? `<details class="acc"><summary>Transcript + analysis <small>available after submission</small></summary><div class="accb transcript">${esc(l.transcript || '').replace(/\n\n/g,'</p><p>')}</div></details>` : ''}</section>`;
+      // Without the recording there is no listening to do: questions are a preview (no answers, no submit,
+      // no transcript standing in for the audio). Work already submitted earlier stays as it was.
+      const pending = l.audioReady === false && !submitted;
+      const qs = (l.questions || []).map((q,i) => listeningQuestion(u,l,q,i)).join('');
+      if (pending) return `<section class="listen-card pending"><div class="wk"><span class="tagp">${esc(l.format || 'Audio')}</span><span class="tago">${esc(l.level || 'C1')} · ${listenLength(l)}</span></div><h3>${esc(l.title)}</h3><ol class="sup">${passes.map(x => `<li>${esc(x)}</li>`).join('')}</ol>${audioControl}<fieldset class="li-preview" disabled aria-label="Questions preview"><div class="qs">${qs}</div></fieldset></section>`;
+      return `<section class="listen-card"><div class="wk"><span class="tagp">${esc(l.format || 'Audio')}</span><span class="tago">${esc(l.level || 'C1')} · ${listenLength(l)}</span></div><h3>${esc(l.title)}</h3><ol class="sup">${passes.map(x => `<li>${esc(x)}</li>`).join('')}</ol>${audioControl}<div class="qs">${qs}</div><button class="btn dark" data-act="lisubmit" data-u="${u}" data-lid="${l.id}">${submitted ? 'resubmit answers' : 'submit listening'}</button>${submitted ? `<details class="acc"><summary>Transcript + analysis <small>available after submission</small></summary><div class="accb transcript">${esc(l.transcript || '').replace(/\n\n/g,'</p><p>')}</div></details>` : ''}</section>`;
     }).join('')}</div>`;
   }
   const attemptsFor = (u, id) => (S.sp || []).filter(x => x.unit === u && x.activityId === id).sort((a,b) => a.attempt - b.attempt);
@@ -482,8 +502,8 @@
     const label = s.label || 'Speaking Lab';
     const level = s.level || 'C1';
     const seconds = Array.isArray(s.seconds) ? s.seconds : [60, 120];
-    const prompt = s.prompt || (s.part2 ? s.part2.topic : 'Spontaneous speaking task');
-    const prepare = s.prepare || (s.part2 ? (s.part2.guide || (s.part2.prompts || []).join(' · ')) : 'Prepare with keywords, not a script.');
+    const prompt = s.prompt;
+    const prepare = s.prepare || 'Prepare with keywords, not a script.';
     const targets = Array.isArray(s.targets) ? s.targets : [];
     const rubric = Array.isArray(s.rubric) ? s.rubric : ['Task achievement and fluency', 'Coherence and lexical range', 'Grammatical accuracy and pronunciation'];
     const at = attemptsFor(u, id), last = at[at.length - 1];
@@ -599,15 +619,17 @@
       ${w.items.map(it => `<div class="block">${renderWriting(u, it, 'write')}</div>`).join('')}`;
   };
   R.edit = (u, d) => {
-    const e = d.edit, dk = u + ':' + e.draftOf, draft = S.a[dk] || '';
+    // Draft 1 as it was analysed (latest snapshot), or the draft itself if it has not been analysed yet
+    const snap = ((S.pf[u + ':' + d.edit.draftOf] || {}).fb || []).filter(f => f.draft === 'first' && typeof f.text === 'string').pop();
+    const e = d.edit, dk = u + ':' + e.draftOf, draft = snap ? snap.text : (S.a[dk] || '');
     const done = e.checklist.filter((c, i) => S.a[`${u}:ck:${i}`]).length;
-    return `<div class="block"><details class="acc" ${draft ? '' : 'open'}><summary>Your first draft <small>${words(draft)} words</small></summary><div class="accb" style="white-space:pre-wrap">${draft ? esc(draft) : '<span class="muted">You haven\'t written the first draft yet. Go back to WRITE first.</span>'}</div></details></div>
+    return `<div class="block"><details class="acc" ${draft ? '' : 'open'}><summary><span class="draft-label">Draft 1 — ${snap ? 'as analysed' : 'your first draft'}</span> <small>${words(draft)} words</small></summary><div class="accb" style="white-space:pre-wrap">${draft ? esc(draft) : '<span class="muted">You haven\'t written the first draft yet. Go back to WRITE first.</span>'}</div></details></div>
       <div class="block"><div class="bhead"><h3>Checklist</h3><span class="tago">Read your draft once for each line</span></div>
       <div class="checks">${e.checklist.map((c, i) => `<label class="ck"><input type="checkbox" data-ck="${u}:ck:${i}" ${S.a[`${u}:ck:${i}`] ? 'checked' : ''}><span>${c}</span></label>`).join('')}<div class="count" data-cc="${u}">${done} of ${e.checklist.length} checked</div></div></div>
       <div class="block"><div class="bhead"><h3>Second draft challenge</h3><span class="tago">Choose 2 or 3</span></div>
       <div class="checks">${e.challenges.map((c, i) => `<label class="ck"><input type="checkbox" data-ck="${u}:ch:${i}" ${S.a[`${u}:ch:${i}`] ? 'checked' : ''}><span>${c}</span></label>`).join('')}</div></div>
       ${revisionPointers(dk)}
-      <div class="block">${renderWriting(u, e.revised, 'edit')}</div>`;
+      <div class="block"><div class="draft-label draft2">Draft 2 — your revision</div>${renderWriting(u, e.revised, 'edit')}</div>`;
   };
   // Links the first-draft feedback to the revision: priorities and questions only, never rewritten text
   function revisionPointers(dk) {
@@ -640,10 +662,10 @@
   function renderHome() {
     const pct = overall(), udone = ALL.filter(u => S.ud[u.id]).length;
     const seal = `<svg class="seal" viewBox="0 0 200 200" role="img" aria-label="Seal: Mayra Balboni, B2+ to C1, Personal Study Book, Volume I">
-      <circle cx="100" cy="100" r="98" fill="#E8BCC1"/><circle cx="100" cy="100" r="62" fill="none" stroke="#1C1817" stroke-opacity=".45"/>
+      <circle cx="100" cy="100" r="98" fill="#EEBFC2" stroke="#371B18" stroke-opacity=".18"/><circle cx="100" cy="100" r="62" fill="none" stroke="#371B18" stroke-opacity=".45"/>
       <defs><path id="sealc" d="M100 100m-80 0a80 80 0 1 1 160 0a80 80 0 1 1 -160 0"/></defs>
-      <g class="ring"><text fill="#1C1817" font-family="Jost, Futura, sans-serif" font-size="10.5" font-weight="500" letter-spacing="2"><textPath href="#sealc" textLength="496" lengthAdjust="spacing">MAYRA BALBONI · B2+ → C1 · PERSONAL STUDY BOOK · VOL. I ·</textPath></text></g>
-      <g transform="translate(50 50)"><path d="M36 22V78M36 53L64 22M47 44L66 78" fill="none" stroke="#1C1817" stroke-width="5"/></g></svg>`;
+      <g class="ring"><text fill="#5A3336" font-family="Jost, Futura, sans-serif" font-size="10.5" font-weight="500" letter-spacing="2"><textPath href="#sealc" textLength="496" lengthAdjust="spacing">MAYRA BALBONI · B2+ → C1 · PERSONAL STUDY BOOK · VOL. I ·</textPath></text></g>
+      <g transform="translate(50 50)"><path d="M26 78V22L50 60L74 22V78" fill="none" stroke="#371B18" stroke-width="5" stroke-linejoin="miter"/></g></svg>`;
     const modCards = CUR.modules.map(m => `<article class="modcard"><header><div><div class="ml">Module ${m.id}</div><h3>${m.title}</h3></div>${modDone(m) ? '<span class="mark done">Complete</span>' : ''}</header>
       <ol>${m.units.map(u => `<li class="${has(u.id) ? '' : 'soon'}"><a href="#u${u.id}"><span class="n">${u.id}</span><span class="t">${u.title}</span><span class="tg">${u.star ? '<span class="mark star" title="Special long reading">★ long read</span>' : ''}${u.lf ? '<span class="mark lf" title="Long-form writing">LF</span>' : ''}${S.ud[u.id] ? '<span class="mark done">done</span>' : (has(u.id) ? '' : '<span class="mark soon">soon</span>')}</span></a></li>`).join('')}
       ${REVIEWS[m.id]
@@ -660,10 +682,10 @@
           <p class="rtw rise d3">Read. Think. <b>Write.</b></p>
           <div class="who rise d4"><strong>Mayra Balboni</strong><span>32 units · 7 modules</span></div>
         </div>
-        <div class="arch-wrap rise d3"><div class="arch"><span class="glow"></span><div class="hand">back to<br>depth</div><div class="foot">KLANG · 2026</div></div>${seal}</div>
+        <div class="arch-wrap rise d3"><div class="arch"><span class="glow"></span><svg class="mtn" viewBox="0 0 400 240" preserveAspectRatio="none" aria-hidden="true"><path d="M0 92 L60 58 L120 84 L190 30 L262 78 L320 52 L400 88 V240 H0Z" fill="#D9A5AB"/><path d="M0 142 L70 104 L140 130 L214 86 L290 124 L350 100 L400 118 V240 H0Z" fill="#A86B72"/><path d="M0 178 L80 146 L160 170 L240 134 L320 166 L400 150 V240 H0Z" fill="#4A2824"/></svg><div class="hand">back to<br>depth</div><div class="foot">MIND · 2026</div></div>${seal}</div>
       </div>
       <div class="cycle">${STAGES.map(x => x[1]).map(s => `<span>${s}</span>`).join('')}</div>
-      <svg class="torn" viewBox="0 0 1440 110" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34 L70 46 L120 30 L190 54 L250 40 L320 62 L380 48 L450 70 L520 56 L590 80 L660 64 L720 84 L800 70 L870 90 L950 76 L1020 96 L1100 82 L1180 100 L1260 86 L1340 104 L1440 90 L1440 110 L0 110Z" fill="#E8BCC1"/><path d="M0 62 L60 72 L130 58 L200 78 L270 66 L340 86 L400 74 L480 92 L540 80 L620 98 L690 86 L760 100 L840 90 L910 104 L990 94 L1060 106 L1140 96 L1220 108 L1300 98 L1380 110 L1440 104 L1440 110 L0 110Z" fill="#F3EBE3"/></svg>
+      <svg class="torn" viewBox="0 0 1440 110" preserveAspectRatio="none" aria-hidden="true"><path d="M0 34 L70 46 L120 30 L190 54 L250 40 L320 62 L380 48 L450 70 L520 56 L590 80 L660 64 L720 84 L800 70 L870 90 L950 76 L1020 96 L1100 82 L1180 100 L1260 86 L1340 104 L1440 90 L1440 110 L0 110Z" fill="#EDC5C9"/><path d="M0 62 L60 72 L130 58 L200 78 L270 66 L340 86 L400 74 L480 92 L540 80 L620 98 L690 86 L760 100 L840 90 L910 104 L990 94 L1060 106 L1140 96 L1220 108 L1300 98 L1380 110 L1440 104 L1440 110 L0 110Z" fill="#F8E2E3"/></svg>
     </section>
 
     <section class="sheet"><div class="wrap letter">
@@ -672,7 +694,7 @@
         <p>Nobody is going to teach you from these pages, and you are not going to teach yourself. This is a place to read slowly, think carefully and write often, in a language you already know well and want to know precisely.</p>
         <p>Your last test showed a familiar profile: reading, listening, writing and speaking around B2, with grammatical control less stable. That is not a gap in ability. It is a gap in precision and automaticity, the distance between knowing a structure and producing it without thinking. Everything here is built to close that distance: long texts, language taken from those texts, grammar that grows out of real sentences, arguments to take apart and rebuild, and a great deal of writing.</p>
         <p>Each unit asks one question. None of them has a simple answer, and none of them tries to hand you one.</p>
-        <p class="sig">KLANG · Personal Study Book · Mayra Balboni</p>
+        <p class="sig">MIND · Personal Study Book · Mayra Balboni</p>
       </div></div></section>
 
     <section class="dark"><div class="wrap">
@@ -853,7 +875,7 @@
       if (d.listening && d.listening.length) h += listeningHtml(reviewPrefix(id), d.listening);
       return h;
     }
-    if (stage === 'editing') return `<div class="block"><p class="lead">${d.editing.lead}</p><article class="edit-source">${esc(d.editing.text)}</article></div>${reviewItems(id, d.editing.items, 'editing')}<div class="block"><button class="btn line" data-act="reviewmodel" data-r="${id}">compare with one edited version →</button><div id="review-model" hidden class="fb" style="margin-top:16px"></div></div>`;
+    if (stage === 'editing') return `<div class="block"><p class="lead">${d.editing.lead}</p>${d.editing.text ? `<article class="edit-source">${esc(d.editing.text)}</article>` : ''}</div>${reviewItems(id, d.editing.items, 'editing')}${d.editing.model ? `<div class="block"><button class="btn line" data-act="reviewmodel" data-r="${id}">compare with one edited version →</button><div id="review-model" hidden class="fb" style="margin-top:16px"></div></div>` : ''}`;
     if (stage === 'synthesis') return `<div class="block"><p class="lead">Transfer ideas and language across the module. This task is included in your Writing Portfolio and supports Get feedback.</p></div><div class="block">${renderWriting(reviewPrefix(id), d.synthesis, 'synthesis')}</div>${timedHtml(id, d)}`;
     return reviewAssessment(id, d) + teacherLensHtml(id, d);
   }
@@ -1003,7 +1025,7 @@
           <div class="nums">First draft · <b>${words(t1)}</b>${rev ? `<br>Revised · <b>${words(t2)}</b>` : ''}</div>
           <div style="display:grid;gap:6px;justify-items:end"><select data-pf="${k}:s" aria-label="Status">${PF_ST.map(s => `<option ${s === st ? 'selected' : ''}>${s}</option>`).join('')}</select><input type="date" data-pf="${k}:d" value="${esc(p.d || '')}" aria-label="Date completed"></div></div>
           <details><summary>show drafts</summary><div class="drafts"><div><b>First draft</b>${t1 ? esc(t1) : '<span class="muted">Empty</span>'}</div><div><b>Revised draft</b>${rev ? (t2 ? esc(t2) : '<span class="muted">Empty</span>') : '<span class="muted">No revision stage for this task</span>'}</div></div>
-          ${(p.fb || []).length ? `<div class="pffb"><b>AI feedback</b>${p.fb.slice().reverse().map(f => `<button class="btn line sm" data-act="fbopen" data-pk="${k}" data-id="${esc(f.id)}">${esc(f.at.slice(0, 10))} · ${f.draft === 'revised' ? 'revised' : 'first'} draft · ${esc(f.f.estimatedLevel.level)}</button>`).join('')}</div>` : ''}
+          ${(p.fb || []).length ? `<div class="pffb"><b>Feedback</b>${p.fb.slice().reverse().map(f => `<button class="btn line sm" data-act="fbopen" data-pk="${k}" data-id="${esc(f.id)}">${esc(f.at.slice(0, 10))} · ${f.draft === 'revised' ? 'revised' : 'first'} draft · ${esc(f.f.estimatedLevel.level)}</button>`).join('')}</div>` : ''}
           <p style="margin-top:10px"><a class="btn ghost sm" href="#${isReview ? `${u}-synthesis` : `u${u}-${it._stage || 'write'}`}">open ${isReview ? 'review' : 'unit'} →</a></p></details></div>`;
       }).join('')}</div>
       <p class="muted" style="margin-top:18px;font-size:14px">New units add their writing tasks here automatically.</p></div></section>`;
@@ -1128,10 +1150,10 @@
 
     const dimsHtml = P.dimensions.map(d => {
       const hasLevel = d.level !== null;
-      const confTag = d.confidence === 'high' ? '<span class="tago" style="background:#e8f5e9;color:#2e7d32">HIGH CONFIDENCE</span>' :
-                      d.confidence === 'medium' ? '<span class="tago" style="background:#fff8e1;color:#b45309">MEDIUM CONFIDENCE</span>' :
-                      d.confidence === 'low' ? '<span class="tago" style="background:#f5f5f5;color:#616161">LOW CONFIDENCE</span>' :
-                      '<span class="tago" style="background:#fce4ec;color:#c2185b">NEEDS EVIDENCE</span>';
+      const confTag = d.confidence === 'high' ? '<span class="tago" style="background:var(--success-bg);color:var(--success)">HIGH CONFIDENCE</span>' :
+                      d.confidence === 'medium' ? '<span class="tago" style="background:var(--warning-bg);color:var(--warning)">MEDIUM CONFIDENCE</span>' :
+                      d.confidence === 'low' ? '<span class="tago" style="background:var(--neutral-bg);color:var(--neutral)">LOW CONFIDENCE</span>' :
+                      '<span class="tago" style="background:var(--accent-wash);color:var(--accent-text)">NEEDS EVIDENCE</span>';
 
       // Evidence without a CEFR estimate (speaking, quick checks, conversations) is shown as evidence, never as a level
       const levelDisplay = hasLevel ? `<div class="p-level">${esc(d.level)}</div>` : `<div class="p-level none">${d.evidenceCount ? 'Evidence recorded · no level estimate' : 'Not enough evidence yet'}</div>`;
@@ -1218,26 +1240,24 @@
   function renderSide(hash) {
     const pct = overall();
     const curU = (hash.match(/^u(\d\d)/) || [])[1];
-    const curReview = (hash.match(/^r([12])/) || [])[1];
+    const curReview = (hash.match(/^r([1-7])/) || [])[1];
     const curMod = curReview ? +curReview : (curU && meta(curU) ? meta(curU).module : null);
     $('#side').innerHTML = `
       <a class="brand" href="#home" aria-label="Home">${wordmark()}<span>A Mind in English</span></a>
-      <div id="side-account" class="side-account"></div>
-      <div id="side-timer" class="side-timer">${sideTimerHtml()}</div>
-      <div class="prog"><div class="row"><span>Progress</span><b>${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
-      <div class="side-profile-widget">
-        <div class="row"><span>English Profile</span><b>${profileBadgeText()}</b></div>
-        <a href="#profile">view english profile →</a>
-      </div>
       <a class="btn rosa wide" href="#${continueTarget()}">continue studying →</a>
       <div class="search">${ICON.search}<input id="sq" type="search" placeholder="Search themes, words, texts…" value="${esc(SQ)}" aria-label="Search"></div>
       <div><div class="nav-label">Modules</div><div class="mods">${CUR.modules.map(m => `<details ${m.id === (curMod || 1) ? 'open' : ''}><summary><span class="mn">${m.id}</span><span class="mt">${m.title}</span><span class="mc">${m.units.filter(u => S.ud[u.id]).length}/${m.units.length}</span></summary>
         <ul>${m.units.map(u => `<li><a href="#u${u.id}" class="${u.id === curU ? 'on' : ''} ${has(u.id) ? '' : 'soon'}"><span class="n">${u.id}</span><span>${u.title}</span><span class="st ${unitState(u.id)}"></span></a></li>`).join('')}${REVIEWS[m.id] ? `<li><a href="#r${m.id}" class="${String(m.id) === curReview ? 'on' : ''}"><span class="n">↺</span><span>Module Review</span><span class="st ${S.rd[m.id] ? 'done' : ''}"></span></a></li>` : ''}</ul></details>`).join('')}</div></div>
       <div><div class="nav-label">Notebook</div><div class="tools">
-        ${[['home', ICON.home, 'Home & contents', ''], ['profile', ICON.pf, 'English Profile', ''], ['learning', ICON.book, 'Learning Review', ''], ['glossary', ICON.gl, 'My Glossary', glossaryEntries().filter(e => glStatus(e.u, e.key) === 'learning').length || ''], ['errors', ICON.err, 'My Error Log', S.errs.length || ''], ['portfolio', ICON.pf, 'My Writing Portfolio', ''], ['bookmarks', ICON.bm, 'Bookmarks', S.bm.length || ''], ['current', ICON.ca, 'Current Affairs Lab', '']].map(t => `<a href="#${t[0]}" class="${hash === t[0] ? 'on' : ''}">${t[1]}<span>${t[2]}</span><span class="ct">${t[3]}</span></a>`).join('')}
+        ${[['home', ICON.home, 'Home & contents', ''], ['profile', ICON.pf, 'English Profile', profileBadgeText()], ['learning', ICON.book, 'Learning Review', ''], ['glossary', ICON.gl, 'My Glossary', glossaryEntries().filter(e => glStatus(e.u, e.key) === 'learning').length || ''], ['errors', ICON.err, 'My Error Log', S.errs.length || ''], ['portfolio', ICON.pf, 'My Writing Portfolio', ''], ['bookmarks', ICON.bm, 'Bookmarks', S.bm.length || ''], ['current', ICON.ca, 'Current Affairs Lab', '']].map(t => `<a href="#${t[0]}" class="${hash === t[0] ? 'on' : ''}">${t[1]}<span>${t[2]}</span><span class="ct">${t[3]}</span></a>`).join('')}
       </div></div>
       ${backupBox()}
-      <p class="side-foot">KLANG · o som da língua</p>`;
+      <p class="side-foot">MIND · A Mind in English</p>
+      <div class="side-desk" aria-label="Account, study timer and progress">
+        <div id="side-account" class="side-account"></div>
+        <div id="side-timer" class="side-timer">${sideTimerHtml()}</div>
+        <div class="prog"><div class="row"><span>Progress</span><b>${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+      </div>`;
     if (window.KLANG_SYNC) window.KLANG_SYNC.updateAccountUI();
   }
 
@@ -1309,7 +1329,7 @@
     closePop();
     const h = (location.hash || '#home').slice(1) || 'home';
     let m = h.match(/^u(\d\d)(?:-([a-z]+))?$/);
-    const r = h.match(/^r([12])(?:-([a-z]+))?$/);
+    const r = h.match(/^r([1-7])(?:-([a-z]+))?$/);
     if (m && !meta(m[1])) m = null;
     const talk = h.match(/^talk(\d\d)(?:-([A-Za-z0-9_-]{8,96}))?$/);
     const prevUnit = (lastRoute.match(/^u(\d\d)/) || [])[1];
@@ -1404,7 +1424,7 @@
   }
   function buildMd(u) {
     const d = UNITS[u], m = meta(u);
-    const L = [`# Unit ${u} · ${m.title}`, '', `*A Mind in English · KLANG Personal Study Book · exported ${today()}*`, '', `**The question:** ${d.question}`, ''];
+    const L = [`# Unit ${u} · ${m.title}`, '', `*A Mind in English · MIND Personal Study Book · exported ${today()}*`, '', `**The question:** ${d.question}`, ''];
     const items = collect(d);
     STAGES.forEach(([s, label]) => {
       const rows = items.filter(x => x.stage === s).map(x => {
@@ -1457,7 +1477,7 @@
       <div class="acts"><button class="btn line" data-act="close">close</button><button class="btn line" data-act="dlmd" data-u="${u}">download .md</button><button class="btn dark" data-act="copymd">copy markdown →</button></div>`);
   }
   function writingText(u) {
-    if (/^r[12]$/.test(u)) {
+    if (/^r[1-7]$/.test(u)) {
       const r = REVIEWS[u.slice(1)];
       return [r.synthesis, r.timed].filter(Boolean).map(it => { const t = S.a[`${u}:${it.id}`]; return t ? `${it.kind}: ${it.title} (${words(t)} words)\n\n${t}` : ''; }).filter(Boolean).join('\n\n———\n\n');
     }
@@ -1596,6 +1616,34 @@
   }
 
   /* ── writing feedback ─────────────────────── */
+  // A Unit's Main Write Draft 1 is frozen once it has been analysed: what was analysed stays exactly as it
+  // was (the server keeps the snapshot), and the revision continues as Draft 2 in EDIT. Module Review main
+  // tasks have no Draft 2 task, so they are never frozen (their analysed snapshots are still kept).
+  function draft2Of(k) {
+    const it = REG[k], u = k.split(':')[0], rev = UNITS[u] && UNITS[u].edit && UNITS[u].edit.revised;
+    return it && it.main && !it.revisionOf && rev && rev.revisionOf === it.id ? `${u}:${rev.id}` : null;
+  }
+  const draft1Locked = k => !!draft2Of(k) && ((S.pf[k] || {}).fb || []).some(f => f.draft === 'first');
+  function draft1LockedNote(k) {
+    const first = ((S.pf[k] || {}).fb || []).filter(f => f.draft === 'first')[0];
+    const d2 = draft2Of(k), started = !!String(S.a[d2] || '').trim();
+    return `<div class="note draft-frozen" role="note"><b>Draft 1 · analysed${first && first.at ? ` on ${esc(new Date(first.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' }))}` : ''}.</b> It stays exactly as it was when you asked for feedback. Your revision is a separate Draft 2.
+      <div style="margin-top:10px"><button class="btn dark sm" data-act="startdraft2" data-q="${k}">${started ? 'continue Draft 2 →' : 'start Draft 2 →'}</button></div></div>`;
+  }
+  function startDraft2(k) {
+    const d2 = draft2Of(k);
+    if (!d2) return;
+    // Draft 2 begins as a copy of Draft 1, in its own field; Draft 1 is never touched
+    if (!String(S.a[d2] || '').trim()) { S.a[d2] = S.a[k] || ''; save(d2); }
+    location.hash = `#u${k.split(':')[0]}-edit`;
+  }
+  // Writing Support facts at submission, as recorded (null = not known)
+  function supportAtSubmit(k) {
+    const it = REG[k], u = k.split(':')[0], RG = window.KLANG_REGISTER;
+    if (!it || !RG || !RG.profileFor(it._stage, it)) return { level: null, used: false, openedBeforeWriting: null };   // no support offered here
+    const rec = S.a[`${k}:support`];
+    return { level: supportLevelOf(u, k), used: !!rec, openedBeforeWriting: rec && typeof rec === 'object' && typeof rec.beforeWriting === 'boolean' ? rec.beforeWriting : null };
+  }
   const baseTaskKey = k => { const it = REG[k]; const u = k.split(':')[0]; return it && it.revisionOf ? `${u}:${it.revisionOf}` : k; };
   const feedbackFor = k => { const pk = baseTaskKey(k), draft = REG[k] && REG[k].revisionOf ? 'revised' : 'first'; return ((S.pf[pk] || {}).fb || []).filter(f => f.draft === draft); };
   function aiFeedbackBtn(k) {
@@ -1618,16 +1666,20 @@
     const [u, taskId] = k.split(':');
     const label = btn.textContent; btn.disabled = true; btn.textContent = 'reading your text…';
     const outline = String(S.a[`${baseTaskKey(k)}:outline`] || '').trim();
-    const r = await aiFetch('/api/ai/feedback', Object.assign({ unit: u, taskId, text }, outline ? { outline } : {}));
+    const support = supportAtSubmit(k);
+    const r = await aiFetch('/api/ai/feedback', Object.assign({ unit: u, taskId, text, support }, outline ? { outline } : {}));
     btn.disabled = false; btn.textContent = label;
     if (r.status === 401) { needSignIn(); return; }
     if (r.status === 503) { AI_OK = false; btn.disabled = true; toast('AI feedback is not available on this server'); return; }
     if (!r.ok) { toast(aiError(r)); return; }
     const pk = baseTaskKey(k);
-    const entry = { id: uid() + uid(), at: r.data.createdAt || new Date().toISOString(), draft: it.revisionOf ? 'revised' : 'first', words: r.data.words, f: r.data.feedback };
+    // What was analysed, as it was: the exact text, the model and prompt version the server reports, support facts
+    const entry = Object.assign({ id: r.data.analysisId || (uid() + uid()), at: r.data.createdAt || new Date().toISOString(), draft: r.data.draft || (it.revisionOf ? 'revised' : 'first'), words: r.data.words, f: r.data.feedback, model: r.data.model || null, promptVersion: r.data.promptVersion || null },
+      r.data.isMain ? { text, support, snapshot: true, expectedRegister: r.data.expectedRegister || null } : {});
     S.pf[pk] = S.pf[pk] || {};
-    S.pf[pk].fb = (S.pf[pk].fb || []).concat(entry).slice(-20);
+    S.pf[pk].fb = (S.pf[pk].fb || []).concat(entry);   // longitudinal history: never trimmed
     save('portfolio');
+    if (draft1Locked(k)) { const q = $(`#q-${CSS.escape(k)}`); if (q) q.outerHTML = renderWriting(u, it, it._stage); }
     const box = $(`[data-aifb="${CSS.escape(k)}"]`); if (box) box.innerHTML = savedFeedbackHtml(k);
     openFeedbackModal(pk, entry.id);
     toast('Feedback saved to your Writing Portfolio');
@@ -1667,11 +1719,11 @@
     const head = t => `<h4 class="fbh"><span>${String(n.i++).padStart(2, '0')}</span>${t}</h4>`;
     const [u, tid] = pk.split(':');
     const task = (UNITS[u] && UNITS[u].write.items.find(x => x.id === tid)) || reviewTask(u, tid) || {};
-    const sourceLabel = /^r[12]$/.test(u) ? `Module ${u.slice(1)} Review` : `Unit ${u}`;
+    const sourceLabel = /^r[1-7]$/.test(u) ? `Module ${u.slice(1)} Review` : `Unit ${u}`;
     const isSol = !!f.observations || !!f.argumentDevelopment || !!f.strengthsSummary;
     const sections = isSol ? SOL_SECTIONS : FB_SECTIONS;
     modal(`<div class="fbx">
-      <div class="wk"><span class="tagp">AI feedback</span><span class="tago">${sourceLabel} · ${esc(task.title || '')}</span><span class="tago">${e.draft === 'revised' ? 'Revised draft' : 'First draft'} · ${e.words} words · ${esc(e.at.slice(0, 10))}</span></div>
+      <div class="wk"><span class="tagp">Feedback</span><span class="tago">${sourceLabel} · ${esc(task.title || '')}</span><span class="tago">${e.draft === 'revised' ? 'Revised draft' : 'First draft'} · ${e.words} words · ${esc(e.at.slice(0, 10))}</span></div>
       ${f.estimatedLevel ? `<h4 class="fbh"><span>01</span>Estimated level of this writing</h4><p class="lvl"><b>${esc(f.estimatedLevel.level)}</b> ${esc(f.estimatedLevel.rationale)}</p>` : ''}
       ${(f.strengthsSummary || []).length ? `${head('Genuine Strengths')}${li(f.strengthsSummary)}` : ''}
       ${sections.filter(([key]) => f[key]).map(([key, title]) => { const x = f[key]; return `${head(title)}<p>${esc(x.summary || x)}</p>${(x.strengths || []).length ? `<div class="fbl good"><b>Working</b>${li(x.strengths)}</div>` : ''}${(x.improvements || []).length ? `<div class="fbl"><b>To improve</b>${li(x.improvements)}</div>` : ''}`; }).join('')}
@@ -1937,6 +1989,7 @@
   document.addEventListener('input', e => {
     const t = e.target;
     if (t.dataset.k && t.tagName === 'TEXTAREA') {
+      if (draft1Locked(t.dataset.k)) { t.value = S.a[t.dataset.k] || ''; return; }   // an analysed Draft 1 does not change
       S.a[t.dataset.k] = t.value; save(t.dataset.k);
       const w = $(`.wc[data-for="${CSS.escape(t.dataset.k)}"]`); if (w) wcClass(w);
       const pr = t.dataset.k.match(/^(\d\d):(?:pr:|rg$)/); if (pr) prLog(pr[1]);
@@ -2060,6 +2113,13 @@
           const ok = (a === 'True') === it.answer;
           S.a[`${k}:checked`] = { answer: String(a), at: new Date().toISOString() }; save(k);
           fb.innerHTML = `<div class="fb ${ok ? 'good' : 'bad'}"><span class="v">${ok ? 'Correct' : 'Not quite'} · ${it.answer ? 'True' : 'False'}</span>${it.explain}</div>`;
+        } else if (it.type === 'quote') {
+          const a = String(S.a[k] || '').trim();
+          if (!a) { fb.innerHTML = `<div class="fb"><span class="v">No answer yet</span>Find the phrase in the text and copy it first.</div>`; break; }
+          const norm = x => String(x || '').toLowerCase().replace(/[*_“”"'’.,;:!?()]/g, ' ').replace(/\s+/g, ' ').trim();
+          const ok = norm(a).includes(norm(it.find)) || (norm(a).length >= 12 && norm(it.find).includes(norm(a)));
+          S.a[`${k}:checked`] = { answer: a.slice(0, 200), at: new Date().toISOString() }; save(k);
+          fb.innerHTML = `<div class="fb ${ok ? 'good' : 'bad'}"><span class="v">${ok ? 'Found' : 'Not quite · look again'}</span><div class="model">${it.quote}</div>${it.explain || ''}</div>`;
         }
         break;
       }
@@ -2097,6 +2157,7 @@
       case 'lisubmit': {
         const owner = /^r[1-7]$/.test(t.dataset.u) ? REVIEWS[t.dataset.u.slice(1)] : UNITS[t.dataset.u];
         const activity = owner && (owner.listening || []).find(x => x.id === t.dataset.lid), answers = {};
+        if (activity && activity.audioReady === false && !S.a[`${t.dataset.u}:li:${t.dataset.lid}:submitted`]) break;   // no recording, nothing to submit
         (activity?.questions || []).forEach(q => { if (['mc','tf','fill'].includes(q.type)) answers[q.id] = S.a[`${t.dataset.u}:li:${t.dataset.lid}:${q.id}`]; });
         S.a[`${t.dataset.u}:li:${t.dataset.lid}:submitted`] = { at: new Date().toISOString(), answers };
         save(`${t.dataset.u}:li`); rerenderOwner(t.dataset.u,'interpret'); toast('Answers submitted · transcript unlocked'); break;
@@ -2208,11 +2269,42 @@
         break;
       }
       case 'timer-toggle': toggleStudyTimer(); break;
+      case 'wslevel': setSupportLevel(t.dataset.wsk, t.dataset.level); break;
+      case 'startdraft2': startDraft2(t.dataset.q); break;
+      case 'timer-confirm': confirmStudyTimer(); break;
     }
   });
 
-  /* ── study timer ─────────────────────────── */
-  const MAX_STUDY_SESSION_SECONDS = 14400; // 4 hours safety auto-cap
+  // Writing Support actually opened for an activity: recorded once (<unit>:<id>:support) with the level
+  // shown and whether the learner had written anything yet. Selecting a level is not use; Off shows nothing.
+  // Only these three facts: no keystrokes, no text.
+  document.addEventListener('toggle', e => {
+    const d = e.target;
+    if (!d || !d.open || !d.dataset || !d.dataset.wsup || d.dataset.level === 'off') return;
+    const k = d.dataset.wsup, key = k + ':support';
+    if (S.a[key]) return;
+    const written = [S.a[k], S.a[`${k}:outline`]].some(v => typeof v === 'string' && v.trim());
+    S.a[key] = { at: new Date().toISOString(), level: d.dataset.level, beforeWriting: !written };
+    save(key);
+  }, true);
+
+  function setSupportLevel(k, level) {
+    const RG = window.KLANG_REGISTER;
+    if (!RG || !RG.LEVELS.includes(level)) return;
+    S.a[`${k}:supportLevel`] = level;            // explicit choice for this activity only
+    save(k);
+    // Re-render only this control: the answer box, and anything typed in it, are not touched
+    const w = document.querySelector(`[data-wsupw="${CSS.escape(k)}"]`);
+    if (!w) return;
+    const u = w.dataset.u, stage = w.dataset.stage;
+    const it = REG[k];
+    const wasOpen = !!w.querySelector('details.wsup[open]');
+    if (it) w.outerHTML = supportHtml(u, it, stage, wasOpen);
+  }
+
+  /* ── study timer (rules in study-timer.js: manual, no maximum, abandoned sessions end at the last reliable moment) ── */
+  const ST = window.KLANG_STUDY;
+  let lastTimerSync = 0, lastTimerBeat = 0;
   function formatTimer(totalSec) {
     const s = Math.max(0, Math.floor(totalSec));
     const hrs = Math.floor(s / 3600);
@@ -2221,126 +2313,106 @@
     const p2 = n => String(n).padStart(2, '0');
     return hrs > 0 ? `${p2(hrs)}:${p2(mins)}:${p2(secs)}` : `${p2(mins)}:${p2(secs)}`;
   }
+  const clockTime = ms => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const spanText = sec => { const m = Math.round(sec / 60); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+  function studyState() { S.study = ST.normalize(S.study); return S.study; }
+  const timerRunning = () => !!(S.study && S.study.activeSession);
+  const getTimerElapsed = () => ST.elapsedSeconds(S.study, Date.now());
+  // Display only: never the Learning Review's eligibility (that is study time since the last successful review, server side)
+  const todayStudyMinutes = () => Math.floor(ST.todaySeconds(studyState(), Date.now()) / 60);
 
-  function getTimerElapsed() {
-    if (!S.study || !S.study.activeSession || !S.study.activeSession.startedAt) return 0;
-    const startMs = Date.parse(S.study.activeSession.startedAt);
-    if (isNaN(startMs)) return 0;
-    return Math.floor((Date.now() - startMs) / 1000);
-  }
-
-  function todayStudyMinutes() {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const completedSec = (S.study?.sessions || [])
-      .filter(s => (s.endedAt || s.startedAt || '').slice(0, 10) === todayStr)
-      .reduce((acc, s) => acc + (s.durationSeconds || 0), 0);
-    const activeSec = S.study?.activeSession ? getTimerElapsed() : 0;
-    return Math.floor((completedSec + activeSec) / 60);
-  }
-
+  // "23 min today · 14:32": the running clock wraps as one piece instead of being cut off after an hour
+  const sideStatHtml = () => `<span class="side-timer-run">${todayStudyMinutes()} min today</span>${timerRunning() ? ` <span class="side-timer-run">· ${formatTimer(getTimerElapsed())}</span>` : ''}`;
   function sideTimerHtml() {
-    const isRunning = !!(S.study && S.study.activeSession);
-    const todayMins = todayStudyMinutes();
-    const elapsed = isRunning ? getTimerElapsed() : 0;
+    const isRunning = timerRunning();
+    const stat = sideStatHtml();
     return `<div class="side-timer-widget ${isRunning ? 'running' : ''}">
       <div class="side-timer-row">
         <div class="side-timer-meta">
           <span class="side-timer-label">Study Timer</span>
-          <span class="side-timer-stat" id="side-timer-stat">${todayMins} min today${isRunning ? ` · ${formatTimer(elapsed)}` : ''}</span>
+          <span class="side-timer-stat" id="side-timer-stat">${stat}</span>
         </div>
-        <button type="button" class="timer-toggle-btn ${isRunning ? 'on' : ''}" data-act="timer-toggle" title="${isRunning ? 'Pause/Stop Study Timer' : 'Start Study Timer'}">
-          ${isRunning ? 'Pause ⏸' : 'Start ▶'}
-        </button>
+        <button type="button" class="timer-toggle-btn ${isRunning ? 'on' : ''}" data-act="timer-toggle" aria-pressed="${isRunning}" title="${isRunning ? 'Pause the study timer' : 'Start the study timer'}">${isRunning ? 'Pause ⏸' : 'Start ▶'}</button>
       </div>
     </div>`;
   }
 
+  function checkInHtml() {
+    const running = spanText(getTimerElapsed());
+    return `<p><b>Still studying?</b> The study timer has been running for ${esc(running)}.</p><div class="study-checkin-acts"><button type="button" class="btn rosa sm" data-act="timer-confirm">yes, keep counting</button><button type="button" class="btn out sm" data-act="timer-toggle">pause</button></div>`;
+  }
+
+  function endedNotice(r) {
+    if (!r || r.reason === 'manual') return;
+    const end = r.closed ? Date.parse(r.closed.endedAt) : Date.now() - r.uncountedSeconds * 1000;
+    toast(r.reason === 'stale'
+      ? `Study timer stopped at ${clockTime(end)}, the last time the app was open. The ${spanText(r.uncountedSeconds)} after that were not counted.`
+      : `Study timer stopped at ${clockTime(end)}, when it asked if you were still studying. Time after that was not counted.`);
+  }
+
   function tickStudyTimer() {
-    if (!S.study) S.study = { activeSession: null, sessions: [] };
-    if (S.study.activeSession) {
+    const study = studyState(), now = Date.now();
+    if (study.activeSession) {
+      const r = ST.reconcile(study, now, true);
+      if (r) { save('study-timer'); updateTimerUI(); endedNotice(r); return; }
+      // Heartbeat: every tick locally, every few minutes to the other devices
+      if (now - lastTimerSync >= ST.HEARTBEAT_SYNC_MS) { lastTimerSync = now; save('study-timer'); }
+      else if (now - lastTimerBeat >= ST.HEARTBEAT_MS) { lastTimerBeat = now; save(); }
       const elapsed = getTimerElapsed();
-      if (elapsed >= MAX_STUDY_SESSION_SECONDS) {
-        const active = S.study.activeSession;
-        S.study.sessions = S.study.sessions || [];
-        S.study.sessions.push({
-          id: active.id,
-          startedAt: active.startedAt,
-          endedAt: new Date(Date.parse(active.startedAt) + MAX_STUDY_SESSION_SECONDS * 1000).toISOString(),
-          durationSeconds: MAX_STUDY_SESSION_SECONDS,
-          capped: true,
-        });
-        S.study.activeSession = null;
-        save('study-timer');
-        updateTimerUI();
-        toast('Study session capped at 4 hours');
-      } else {
-        const sideStat = $('#side-timer-stat');
-        if (sideStat) {
-          const todayMins = todayStudyMinutes();
-          sideStat.textContent = `${todayMins} min today · ${formatTimer(elapsed)}`;
-        }
-        const clock = $('#timer-clock');
-        if (clock) clock.textContent = formatTimer(elapsed);
-        const topEl = $('#topbar-timer');
-        if (topEl) topEl.classList.add('running');
-      }
-    } else {
-      const topEl = $('#topbar-timer');
-      if (topEl) {
-        topEl.classList.remove('running');
-        const clock = $('#timer-clock');
-        if (clock) clock.textContent = '00:00';
-      }
+      const sideStat = $('#side-timer-stat');
+      if (sideStat) sideStat.innerHTML = sideStatHtml();
+      const clock = $('#timer-clock');
+      if (clock) clock.textContent = formatTimer(elapsed);
+    }
+    const ask = $('#study-checkin');
+    if (ask) {
+      const due = ST.checkInDue(study, now);
+      if (due && ask.hidden) { ask.innerHTML = checkInHtml(); ask.hidden = false; }
+      else if (!due && !ask.hidden) { ask.hidden = true; ask.innerHTML = ''; }
     }
   }
 
   function updateTimerUI() {
-    const isRunning = !!(S.study && S.study.activeSession);
+    const isRunning = timerRunning();
     const elapsed = isRunning ? getTimerElapsed() : 0;
     const sideEl = $('#side-timer');
-    if (sideEl) {
-      sideEl.innerHTML = sideTimerHtml();
-    }
+    if (sideEl) sideEl.innerHTML = sideTimerHtml();
     const topEl = $('#topbar-timer');
     if (topEl) {
-      topEl.innerHTML = `<button type="button" class="timer-btn ${isRunning ? 'on' : ''}" data-act="timer-toggle" title="${isRunning ? 'Pause/Stop Study Timer' : 'Start Study Timer'}"><span class="timer-icon" aria-hidden="true">${isRunning ? '⏸' : '▶'}</span><span class="timer-clock" id="timer-clock">${formatTimer(elapsed)}</span></button>`;
+      topEl.innerHTML = `<button type="button" class="timer-btn ${isRunning ? 'on' : ''}" data-act="timer-toggle" aria-pressed="${isRunning}" title="${isRunning ? 'Pause the study timer' : 'Start the study timer'}"><span class="timer-icon" aria-hidden="true">${isRunning ? '⏸' : '▶'}</span><span class="timer-clock" id="timer-clock">${formatTimer(elapsed)}</span></button>`;
       if (isRunning) topEl.classList.add('running'); else topEl.classList.remove('running');
     }
+    const ask = $('#study-checkin');
+    if (ask && !ST.checkInDue(S.study, Date.now())) { ask.hidden = true; ask.innerHTML = ''; }
   }
 
   function toggleStudyTimer() {
-    if (!S.study) S.study = { activeSession: null, sessions: [] };
-    if (S.study.activeSession) {
-      const active = S.study.activeSession;
-      const elapsed = Math.min(MAX_STUDY_SESSION_SECONDS, getTimerElapsed());
-      if (elapsed >= 5) {
-        S.study.sessions = S.study.sessions || [];
-        S.study.sessions.push({
-          id: active.id,
-          startedAt: active.startedAt,
-          endedAt: new Date().toISOString(),
-          durationSeconds: elapsed,
-          capped: elapsed >= MAX_STUDY_SESSION_SECONDS,
-        });
-      }
-      S.study.activeSession = null;
+    const study = studyState(), now = Date.now();
+    if (study.activeSession) {
+      const r = ST.stop(study, now);
       save('study-timer');
-      toast('Study timer paused');
+      if (r && r.reason !== 'manual') endedNotice(r); else toast('Study timer paused');
     } else {
-      S.study.activeSession = {
-        id: 'st_' + Date.now() + '_' + uid(),
-        startedAt: new Date().toISOString(),
-      };
+      ST.start(study, now);
+      lastTimerSync = now;
       save('study-timer');
       toast('Study timer started');
     }
     updateTimerUI();
   }
 
+  function confirmStudyTimer() {
+    const study = studyState(), now = Date.now();
+    const r = ST.reconcile(study, now, false);
+    if (r) { save('study-timer'); updateTimerUI(); endedNotice(r); return; }
+    if (ST.confirm(study, now)) { lastTimerSync = now; save('study-timer'); toast('Still counting'); }
+    updateTimerUI();
+  }
   /* ── boot ────────────────────────────────── */
-  document.body.insertAdjacentHTML('beforeend', `<div class="focusbar" role="toolbar" aria-label="Reading controls"><button data-act="fs-" aria-label="Smaller text">A−</button><button data-act="fs+" aria-label="Larger text">A+</button><button data-act="width">width</button><button class="x" data-act="exitfocus">exit focus</button></div><div class="rprog" id="rprog"></div><div class="toast" id="toast" role="status" aria-live="polite"></div>`);
-  $('#topbar').innerHTML = `<a href="#home" aria-label="Home">${wordmark('#F3EBE3', 'wm')}</a><div id="topbar-timer" class="topbar-timer"></div><div id="topbar-sync"></div><button data-act="menu" aria-label="Open navigation"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>menu</button>`;
-  updateTimerUI();
+  document.body.insertAdjacentHTML('beforeend', `<div class="focusbar" role="toolbar" aria-label="Reading controls"><button data-act="fs-" aria-label="Smaller text">A−</button><button data-act="fs+" aria-label="Larger text">A+</button><button data-act="width">width</button><button class="x" data-act="exitfocus">exit focus</button></div><div class="rprog" id="rprog"></div><div class="toast" id="toast" role="status" aria-live="polite"></div><div class="study-checkin" id="study-checkin" role="alert" hidden></div>`);
+  $('#topbar').innerHTML = `<a href="#home" aria-label="Home">${wordmark('#371B18', 'wm')}</a><div id="topbar-timer" class="topbar-timer"></div><div id="topbar-sync"></div><button data-act="menu" aria-label="Open navigation"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h16M4 12h16M4 17h16"/></svg>menu</button>`;
+  // A session left running while the app was closed ends at its last heartbeat, before anything is shown
+  { const r = ST.reconcile(studyState(), Date.now(), true); save(r ? 'study-timer' : undefined); updateTimerUI(); if (r) setTimeout(() => endedNotice(r), 600); }
   setInterval(tickStudyTimer, 1000);
   applyPrefs();
   // Conversation UI (character-chat.js): gets state, storage and the AI fetcher; the server stays the authority
@@ -2354,7 +2426,9 @@
   if (window.KLANG_SYNC) {
     window.KLANG_SYNC.init({
       state: S,
-      onRemoteUpdate: () => {
+      onRemoteUpdate: (keys) => {
+        // A timer heartbeat from another device must not re-render (and interrupt) the page being studied
+        if (Array.isArray(keys) && keys.length && keys.every(k => k === 'study-timer')) { updateTimerUI(); return; }
         applyLegacyMigration();   // a document synced from an older device may use the shared key
         applyPrefs();
         updateTimerUI();

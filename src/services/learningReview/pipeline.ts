@@ -6,7 +6,7 @@ import { contentIndex } from '../content';
 import { activityIndex, EVIDENCE_DOC, EvidenceItem, extractEvidence, newEvidence, DocLike } from './evidence';
 import { buildLearningReviewPrompt, PROMPT_VERSION } from './prompt';
 import { LearningReviewOutputSchema } from './schema';
-import { LearningReport, mergeReview, PatternState, PROPOSAL_STAGES, PROPOSAL_TYPES, HumanJudgment } from './merge';
+import { LearningReport, mergeReview, PatternState, PROPOSAL_STAGES, PROPOSAL_TYPES, normalizeJudgments, judgmentApplies } from './merge';
 
 /* The ONE Learning Review pipeline. "Run review now" and the nightly job both call runLearningReview;
    there is no second, simplified path.
@@ -57,23 +57,20 @@ async function releaseLease(userId: string, runId: string) {
   await prisma.learningReviewState.updateMany({ where: { userId, leaseRunId: runId }, data: { leaseRunId: null, leaseExpiresAt: null } });
 }
 
-/** Calculates cumulative study minutes since the given cutoff date (from real study session logs). */
+// Same rules as the browser (public/study-timer.js): real recorded intervals, overlaps counted once
+type StudyRules = { secondsSince(study: unknown, sinceMs: number | null, untilMs?: number | null): number };
+const studyRules: StudyRules = require('../../../public/study-timer.js');
+export const NIGHTLY_MIN_STUDY_MINUTES = 60;
+
+/** Study minutes recorded since the last successful review (its toAt), across any number of days.
+    Only closed sessions count, and only the part after the boundary. There is no per-session
+    maximum: a confirmed long session counts in full (abandoned ones are ended by the timer rules). */
 export async function getAccumulatedStudyMinutes(userId: string, sinceDate: Date | null): Promise<number> {
   const timerDoc = await prisma.userDocument.findUnique({
     where: { userId_key: { userId, key: 'study-timer' } },
   });
   if (!timerDoc || !timerDoc.data) return 0;
-  const data = timerDoc.data as any;
-  const sessions: any[] = data.sessions || [];
-  let totalSeconds = 0;
-  for (const s of sessions) {
-    if (!s || typeof s.durationSeconds !== 'number') continue;
-    if (sinceDate && s.endedAt && new Date(s.endedAt) <= sinceDate) continue;
-    // Cap individual sessions at 4h (14400s) as a conservative safety measure
-    const safeDuration = Math.min(Math.max(0, s.durationSeconds), 14400);
-    totalSeconds += safeDuration;
-  }
-  return Math.floor(totalSeconds / 60);
+  return Math.floor(studyRules.secondsSince(timerDoc.data, sinceDate ? sinceDate.getTime() : null, Date.now()) / 60);
 }
 
 /** The next unit not yet studied: the first unit after the furthest one with any work in it. */
@@ -81,7 +78,8 @@ export function nextUnstudiedUnit(docs: DocLike[]) {
   const { unitIds, units } = contentIndex();
   const studied = new Set(docs.filter((d) => /^unit:\d\d$/.test(d.key)).filter((d) => {
     const a = d.data?.answers || {}, s = d.data?.sections || {};
-    return d.data?.done || Object.values(a).some((v) => v !== '' && v != null && v !== false) || Object.values(s).some(Boolean);
+    // Writing Support choice/use is metadata, not work
+    return d.data?.done || Object.entries(a).some(([k, v]) => !/:support(Level)?$/.test(k) && v !== '' && v != null && v !== false) || Object.values(s).some(Boolean);
   }).map((d) => d.key.slice(5)));
   if (!studied.size) return null;
   const furthest = Math.max(...unitIds.map((id, i) => (studied.has(id) ? i : -1)));
@@ -122,7 +120,7 @@ export async function learningReviewStatus(userId: string) {
     running,
     lastSuccessfulRunId: state?.lastSuccessfulRunId || null,
     studyMinutes,
-    nightlyEligible: studyMinutes >= 60 && total > 0,
+    nightlyEligible: studyMinutes >= NIGHTLY_MIN_STUDY_MINUTES && total > 0,
   };
 }
 
@@ -137,12 +135,13 @@ export async function runLearningReview(userId: string, trigger: 'manual' | 'nig
 
     const prevRun = state.lastSuccessfulRunId ? await prisma.learningReviewRun.findUnique({ where: { id: state.lastSuccessfulRunId }, select: { id: true, toAt: true } }) : null;
 
-    // Requirement 6: Nightly automatic review requires at least 60 cumulative minutes of study session since last review
+    // Nightly only: at least 60 study minutes accumulated since the last successful review (any number of days).
+    // "Run review now" skips this, but still needs new evidence below.
     if (trigger === 'nightly') {
       const studyMinutes = await getAccumulatedStudyMinutes(userId, prevRun?.toAt || null);
-      if (studyMinutes < 60) {
-        log(`nightly skipped: below_study_threshold (${studyMinutes} min < 60 min)`);
-        return { status: 'below_study_threshold', studyMinutes, requiredMinutes: 60 };
+      if (studyMinutes < NIGHTLY_MIN_STUDY_MINUTES) {
+        log(`nightly skipped: below_study_threshold (${studyMinutes} min < ${NIGHTLY_MIN_STUDY_MINUTES} min)`);
+        return { status: 'below_study_threshold', studyMinutes, requiredMinutes: NIGHTLY_MIN_STUDY_MINUTES };
       }
     }
 
@@ -163,7 +162,7 @@ export async function runLearningReview(userId: string, trigger: 'manual' | 'nig
 
     // Load human judgments on hypotheses if available
     const judgmentsDoc = await prisma.userDocument.findUnique({ where: { userId_key: { userId, key: 'learning-judgments' } } });
-    const judgments: Record<string, HumanJudgment> = (judgmentsDoc?.data as any)?.judgments || {};
+    const judgments = normalizeJudgments((judgmentsDoc?.data as any)?.judgments);
 
     // References: E# for new evidence, C# for context (earlier learner work an AI item assesses)
     const refs = new Map<string, string>();
@@ -171,7 +170,11 @@ export async function runLearningReview(userId: string, trigger: 'manual' | 'nig
     const byId = new Map(all.map((e) => [e.id, e]));
     const context = [...new Set(batch.map((e) => e.linkedTo).filter((id): id is string => !!id && !refs.has(id) && byId.has(id)))].map((id) => byId.get(id)!);
     context.forEach((e, i) => refs.set(e.id, `C${i + 1}`));
-    const prior = ((state.patterns as unknown) as PatternState[]) || [];
+    // Prior patterns with the learner's CURRENT judgments (a later change or clear is what the model sees)
+    const prior = (((state.patterns as unknown) as PatternState[]) || []).map((p) => {
+      const j = judgments[p.key];
+      return { ...p, humanJudgment: judgmentApplies(p.hypothesisSince, j) ? j.judgment : null };
+    });
     const nextUnit = nextUnstudiedUnit(docs);
     const hints = recognitionHints(all, batch);
     const prompt = buildLearningReviewPrompt({ batch, context, refs, patterns: prior, hints: hints.map((h) => h.line), nextUnit });

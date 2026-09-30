@@ -277,7 +277,7 @@
     }
   });
 
-  K.units['23'].listening = [
+  K.units['23'].listening = K.pendingListening('23', [
     {
       id: '23l1',
       title: 'Dialogue: The Photograph That Refuses to Fade',
@@ -350,9 +350,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['23'].speaking = {
+  K.units['23'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `Do you have a printed photograph in your home that holds special sentimental value? What makes it significant?`, guide: `Identify the photo, describe its setting, and explain the specific personal memory or emotion attached to it.` },
       { q: `When browsing social media, what usually makes you pause on an image rather than scrolling past it immediately?`, guide: `Discuss qualities like visual contrast, authentic facial expressions, unusual composition, or emotional resonance.` },
@@ -380,5 +380,5 @@
       discourse: `Cohesive transitions between descriptive observation and philosophical interpretation using advanced signposting.`,
       vocabulary: `Effective use of terms such as 'memento mori', 'cognitive salience', 'tableau', 'aesthetic restraint', and 'archetypal symbolism'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

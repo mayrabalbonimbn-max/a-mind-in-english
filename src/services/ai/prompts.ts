@@ -59,7 +59,25 @@ export function buildFeedbackPrompt(params: { unitId: string; taskId: string; te
   return { system: FEEDBACK_SYSTEM, user: lines.filter(Boolean).join('\n'), task, isRevision };
 }
 
-export const MAIN_WRITE_PROMPT_VERSION = 'main-write-v1';
+export const MAIN_WRITE_PROMPT_VERSION = 'main-write-v2';
+
+/** The register a Main Write calls for, from the task's own metadata (its kind), never a global
+    "academic". Register is appropriateness to context, not quality: a personal or reflective essay is
+    not better for sounding academic. Tasks whose kind says nothing about register get a neutral default. */
+export interface ExpectedRegister { id: string; label: string; guidance: string }
+export function mainWriteRegister(task: any): ExpectedRegister {
+  const kind = String(task?.kind || '');
+  const has = (re: RegExp) => re.test(kind);
+  const personal = has(/personal/i), reflective = has(/reflect/i);
+  const argumentative = has(/argument|debate|ethical|critical|persuasi/i);
+  const analytical = has(/analytic|explanatory|evidence|data|literary|cultural|interpret|synthesis|historical|concept/i);
+  if ((personal || reflective) && (analytical || argumentative)) return { id: 'personal_analytical', label: 'Personal and analytical', guidance: 'A personal voice and the first person are appropriate. Claims about ideas should still be precise and suitably hedged. Do not ask for academic impersonality.' };
+  if (personal) return { id: 'personal', label: 'Neutral · personal', guidance: "Clear, natural English about the writer's own experience. The first person, contractions and a personal voice are appropriate and are not register problems." };
+  if (reflective) return { id: 'reflective', label: 'Neutral · reflective', guidance: 'Thoughtful and personal, not chatty. The first person is appropriate; an academic register is not expected.' };
+  if (argumentative) return { id: 'argumentative', label: 'Academic · argumentative', guidance: 'A reasoned case for a reader who may disagree: appropriately formal, calibrated certainty, a visible line of reasoning. Formal does not mean ornate.' };
+  if (analytical) return { id: 'analytical', label: 'Academic · analytical', guidance: 'Attention on the ideas or text and their evidence: precise verbs and calibrated hedging. Academic means clear and calibrated, not dense.' };
+  return { id: 'neutral_default', label: 'Neutral · as the prompt asks', guidance: 'The task does not specify a register. Judge register only against what the prompt itself asks for; clear, neutral English is fully appropriate.' };
+}
 
 export const MAIN_WRITE_SYSTEM = `You are an expert writing tutor and analytical evaluator for advanced English learners moving towards solid C1 and beyond. You are assessing the MAIN WRITE of a unit in "A Mind in English".
 
@@ -70,8 +88,8 @@ Pedagogical Principles & Assessment Standard:
    - Organisation & global coherence: Logical progression of paragraphs, clarity of transitions, and effective opening and ending.
    - Clarity: Unmistakable meaning, transparent syntax, absence of ambiguous references.
    - Grammatical accuracy & range: Command of advanced sentence structures, relative clauses, conditionals, inversions, and unit grammar targets.
-   - Lexical precision, range & naturalness: Academic/analytical collocations, idiomatic phrasing, precision in nuances.
-   - Register & tone: Appropriate academic/analytical register.
+   - Lexical precision, range & naturalness: collocations suited to the task's register, idiomatic phrasing, precision in nuances.
+   - Register & tone: appropriate to the register this task calls for, given in <expected_register>. Register is fit to context, not quality: never reward a more formal or academic style for its own sake, and never treat a natural personal voice or the first person as a problem when the task is personal or reflective.
    - Hedging & stance: Cautious assertion (seems to, suggests, indicates) vs overclaiming.
    - Cohesion & discourse pragmatics: Signposting, discourse markers, logical flow.
    - Unnecessary repetition: Spot repetitive phrasing or ideas that could be condensed.
@@ -81,7 +99,7 @@ Pedagogical Principles & Assessment Standard:
    You MUST classify every specific excerpt into one of five categories:
    - ERROR: An objective grammatical, syntactic, or lexical mistake.
    - AWKWARD: Grammatically valid, but clumsy, overly literal, or unidiomatic English.
-   - REGISTER_MISMATCH: Grammatically correct, but excessively informal or mismatched for the genre.
+   - REGISTER_MISMATCH: Grammatically correct, but mismatched with the expected register of THIS task (too informal for it, or too stiff and formal for it).
    - STYLE_CHOICE: A legitimate stylistic preference. Do NOT "correct" sophisticated or unconventional English that is grammatically and idiomatically sound simply because an alternative phrasing exists.
    - STRONG_LANGUAGE: Exceptionally effective, natural, precise, or elegant English.
 
@@ -105,8 +123,10 @@ export function buildMainWriteFeedbackPrompt(params: {
 }) {
   const base = buildFeedbackPrompt(params);
   if (!base) return null;
+  const expected = mainWriteRegister(base.task);
   const user = [
     base.user,
+    `<expected_register>${expected.label}. ${expected.guidance}</expected_register>`,
     params.supportUsed ? `<support_context>The student opened writing support before submitting.</support_context>` : '',
     `Assess this MAIN WRITE with deep pedagogical precision. Fill every field of the MainWriteFeedback schema. Remember: DO NOT rewrite the essay.`,
   ].filter(Boolean).join('\n');
@@ -116,6 +136,7 @@ export function buildMainWriteFeedbackPrompt(params: {
     task: base.task,
     isRevision: base.isRevision,
     promptVersion: MAIN_WRITE_PROMPT_VERSION,
+    expectedRegister: expected,
   };
 }
 

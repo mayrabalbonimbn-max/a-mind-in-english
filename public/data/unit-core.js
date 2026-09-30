@@ -150,7 +150,8 @@ window.KLANG.units = window.KLANG.units || {};
         title: s.think.title,
         lead: s.think.lead,
         defs: (s.think.defs || []).map(d => ({ term: d[0], def: d[1] })),
-        items: (s.think.items || []).map(t => ({
+        // Every authored field is kept (options, answer, explain, labels…): only missing ones get a default
+        items: (s.think.items || []).map(t => Object.assign({}, t, {
           id: t.id,
           type: t.type || 'open',
           tag: t.tag || 'Critical reasoning',
@@ -182,7 +183,10 @@ window.KLANG.units = window.KLANG.units || {};
       edit: {
         draftOf: `${id}w2`,
         checklist: s.edit.checklist,
-        challenges: s.edit.challenges,
+        // EDIT shows challenges as a checklist of strings; a challenge written as an exercise object
+        // ({ title, task, bad, good }) shows its own title and task, and the full object is kept
+        challenges: (s.edit.challenges || []).map(c => (typeof c === 'string' ? c : `<b>${c.title}.</b> ${c.task}`)),
+        challengeExercises: (s.edit.challenges || []).filter(c => c && typeof c === 'object'),
         revised: {
           id: `${id}w2r`, type: 'writing', kind: `${mainWriting.kind} · revised`,
           title: `${mainWriting.title} · second draft`, min: mainWriting.min, max: mainWriting.max,
@@ -208,4 +212,31 @@ window.KLANG.units = window.KLANG.units || {};
   }
 
   K.makeUnit = makeUnit;
+
+  /* Speaking in the one contract the book renders ({ id, label, level, seconds, prompt, prepare, targets,
+     rubric[] }). A unit written as a three-part card (part1 / part2 {topic, prompts, guide} / part3,
+     rubric as an object) keeps every authored field; the canonical fields are built from its own words. */
+  K.canonicalSpeaking = function (s) {
+    if (!s || s.prompt) return s;
+    const p2 = s.part2 || {};
+    const cues = (p2.prompts || []).map(x => String(x).replace(/\.$/, ''));
+    return Object.assign({}, s, {
+      id: s.id || 's1', label: s.label || 'SAY IT', level: s.level || 'B2+ → C1', seconds: s.seconds || [60, 120],
+      prompt: [p2.topic, cues.length ? `Cover: ${cues.join('; ')}.` : ''].filter(Boolean).join(' '),
+      prepare: p2.guide || 'Prepare with keywords, not a script.',
+      targets: Array.isArray(s.targets) ? s.targets : [],
+      rubric: Array.isArray(s.rubric) ? s.rubric : Object.entries(s.rubric || {}).map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`),
+    });
+  };
+
+  /* Listening whose audio is not recorded yet: honest about it (audioReady:false, no player), pointing
+     at where the recording will live (/audio/en/unit-NN/uNN-listening-0N.mp3). Scripts and questions
+     are kept as authored; an unrecorded track never claims a length. */
+  K.pendingListening = function (unit, list) {
+    return (list || []).map((l, i) => {
+      const out = Object.assign({}, l, { file: `/audio/en/unit-${unit}/u${unit}-listening-${String(i + 1).padStart(2, '0')}.mp3`, audioReady: false });
+      delete out.audio;
+      return out;
+    });
+  };
 })(window.KLANG);

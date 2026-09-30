@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { requireAuth, requireNonDemo } from '../middleware/auth';
 import { createRateLimiter } from '../middleware/rateLimit';
 import { config } from '../config';
+import { pdfWithFallback } from '../services/pdf/render';
+import { mainWriteHtml } from '../services/pdf/mainWriteHtml';
 import { prisma } from '../prisma';
 import { AiFn, AiRequestError, AiUnavailableError, callStructured, isAiAvailable, isTranscriptionAvailable, transcribeAudio } from '../services/ai/provider';
 import { buildExplainPrompt, buildExplainQuestionPrompt, buildFeedbackPrompt, buildInterpretFeedbackPrompt, buildLightLanguagePrompt, buildListeningPrompt, buildMainWriteFeedbackPrompt, buildOutlinePrompt, buildRegisterComparePrompt, buildSpeakingPrompt, buildTeacherLensPrompt, countWords } from '../services/ai/prompts';
@@ -25,6 +27,19 @@ const feedbackLimiter = createRateLimiter({
   message: 'Feedback limit reached for this hour. Your writing is saved; try again later.',
   keyGenerator: (req) => `fb:${req.user!.id}`,
 });
+// Main Write has its own quota: other feedback can never use up the one the Main Text needs
+const mainWriteLimiter = createRateLimiter({
+  windowMs: HOUR,
+  max: config.ai.mainWritePerHour,
+  message: 'Main Write feedback limit reached for this hour. Your text is saved; try again later.',
+  keyGenerator: (req) => `mw:${req.user!.id}`,
+});
+/** Applies a limiter chosen after validation (so a rejected request never costs quota). false = 429 sent. */
+function withinLimit(limiter: ReturnType<typeof createRateLimiter>, req: Request, res: Response): boolean {
+  let ok = false;
+  limiter(req, res, () => { ok = true; });
+  return ok;
+}
 const explainLimiter = createRateLimiter({
   windowMs: HOUR,
   max: config.ai.explainPerHour,
@@ -48,11 +63,19 @@ const transcribeLimiter = createRateLimiter({
 
 const unitId = z.string().regex(/^(?:\d{2}|r[1-7])$/);
 
+// Writing Support facts at submission (null = not known). Metadata only; they change nothing in the analysis.
+const supportSchema = z.object({
+  level: z.enum(['high', 'medium', 'light', 'off']).nullable(),
+  used: z.boolean().nullable(),
+  openedBeforeWriting: z.boolean().nullable(),
+}).strict();
+
 const feedbackSchema = z.object({
   unit: unitId,
   taskId: z.string().regex(/^[A-Za-z0-9_-]{1,32}$/),
   text: z.string().trim().min(1, 'Write something first'),
   outline: z.string().trim().max(8000).optional(),
+  support: supportSchema.optional(),
 });
 
 const outlineSchema = z.object({
@@ -146,7 +169,8 @@ aiRouter.get('/status', (req: Request, res: Response) => {
 });
 
 const speechText = z.object({ unit: unitId, activityId: z.string().regex(/^(?:[a-z]\d|m\ds\d)$/), transcript: z.string().trim().min(1).max(20000) });
-const listenText = z.object({ unit: unitId, activityId: z.string().regex(/^(?:l\d|r\dl\d)$/), questionId: z.string().regex(/^q\d$/), answer: z.string().trim().min(1).max(5000) });
+// Ids as authored: l1 · r1l1 · 23l1 (Units 23–32), questions q1 · 23l1q1; the content lookup still checks they exist
+const listenText = z.object({ unit: unitId, activityId: z.string().regex(/^(?:l\d|r\dl\d|\d{2}l\d)$/), questionId: z.string().regex(/^(?:\d{2}l\d)?q\d$/), answer: z.string().trim().min(1).max(5000) });
 const hasSpeaking = (unit: string, activity: string) => getUnit(unit)?.data?.speaking?.id === activity;
 
 const requireTranscription = (_req: Request, res: Response, next: () => void) => {
@@ -174,7 +198,7 @@ aiRouter.post('/listening-feedback', requireNonDemoAi, requireAi('listening'), f
   try{const feedback=await callStructured({fn:'listening',name:'listening_feedback',system:prompt.system,user:prompt.user,schema:ListeningFeedbackSchema,maxTokens:MAX_OUT.listening});console.info(`[ai] listening feedback unit=${parsed.data.unit} activity=${parsed.data.activityId}`);res.json({success:true,feedback});}catch(err){sendAiError(res,err,'listening feedback');}
 });
 
-aiRouter.post('/feedback', requireNonDemoAi, feedbackLimiter, async (req: Request, res: Response): Promise<void> => {
+aiRouter.post('/feedback', requireNonDemoAi, async (req: Request, res: Response): Promise<void> => {
   const parsed = feedbackSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: 'validation_error', message: parsed.error.issues[0]?.message || 'Invalid request' });
@@ -195,6 +219,7 @@ aiRouter.post('/feedback', requireNonDemoAi, feedbackLimiter, async (req: Reques
     return;
   }
 
+  // The curriculum decides what a Main Write is; nothing in the request can
   const isMain = !!(found.task && found.task.main);
   const fn: AiFn = isMain ? 'mainWrite' : 'writing';
 
@@ -202,12 +227,15 @@ aiRouter.post('/feedback', requireNonDemoAi, feedbackLimiter, async (req: Reques
     res.status(503).json({ error: 'ai_unavailable', message: `AI feedback is not configured for ${fn} on this server.` });
     return;
   }
+  if (!withinLimit(isMain ? mainWriteLimiter : feedbackLimiter, req, res)) return;
 
   const started = Date.now();
   try {
     if (isMain) {
       const prompt = buildMainWriteFeedbackPrompt({ unitId: unit, taskId, text, outline: parsed.data.outline || undefined });
       if (!prompt) { res.status(404).json({ error: 'not_found', message: 'Unknown unit or writing task' }); return; }
+      // What is actually used for THIS call; history never re-reads today's configuration
+      const model = config.ai.models.mainWrite, reasoning = config.ai.reasoning.mainWrite || null;
       const feedback = await callStructured({
         fn: 'mainWrite',
         name: 'main_write_feedback',
@@ -216,15 +244,34 @@ aiRouter.post('/feedback', requireNonDemoAi, feedbackLimiter, async (req: Reques
         schema: MainWriteFeedbackSchema,
         maxTokens: MAX_OUT.mainWrite,
       });
-      console.info(`[ai] main-write feedback unit=${unit} task=${taskId} model=${config.ai.models.mainWrite} words=${countWords(text)} ms=${Date.now() - started}`);
+      console.info(`[ai] main-write feedback unit=${unit} task=${taskId} model=${model} words=${countWords(text)} ms=${Date.now() - started}`);
+      // Snapshot: the exact analysed text with what really happened. Append-only.
+      const draft = found.isRevision ? 'revised' : 'first';
+      const support = parsed.data.support || { level: null, used: null, openedBeforeWriting: null };
+      let analysisId: string | null = null, createdAt = new Date().toISOString();
+      try {
+        const row = await prisma.mainWriteAnalysis.create({ data: {
+          userId: req.user!.id, unit, taskId, baseTaskId: found.isRevision ? String(found.task.revisionOf || taskId) : taskId, draft,
+          text, words: countWords(text), outline: parsed.data.outline || null, model, reasoning, promptVersion: prompt.promptVersion,
+          expectedRegister: prompt.expectedRegister.id, feedback: feedback as any,
+          supportLevel: support.level, supportUsed: support.used, supportOpenedBeforeWriting: support.openedBeforeWriting,
+        } });
+        analysisId = row.id; createdAt = row.createdAt.toISOString();
+      } catch (e) {
+        // The feedback is still returned (and kept in the portfolio); only the server copy is missing
+        console.error(`[ai] main-write snapshot not saved unit=${unit} task=${taskId} err=${(e as Error)?.name}`);
+      }
       res.json({
         success: true,
         feedback,
         words: countWords(text),
         isMain: true,
-        model: config.ai.models.mainWrite,
+        draft,
+        analysisId,
+        model,
         promptVersion: prompt.promptVersion,
-        createdAt: new Date().toISOString(),
+        expectedRegister: prompt.expectedRegister.id,
+        createdAt,
       });
     } else {
       const prompt = buildFeedbackPrompt({ unitId: unit, taskId, text, outline: parsed.data.outline || undefined });
@@ -279,10 +326,22 @@ aiRouter.get('/feedback/:unit/:taskId/:id/export', async (req: Request, res: Res
   const uObj = getUnit(unit);
   const found = getWritingTask(unit, taskId);
   const uAnswers = (unitDoc?.data as any)?.answers || {};
-  const learnerText = String(uAnswers[`${unit}:${taskId}`] || '').trim();
   const revKey = found?.task?.revisionOf ? `${unit}:${found.task.id}` : `${unit}:${taskId}r`;
   const revText = String(uAnswers[revKey] || '').trim();
   const hasRevision = !!revText;
+
+  // The persisted snapshot is the source of truth. An older analysis without one keeps its gaps
+  // explicit: no current draft, today's model or a guessed support flag stands in for what was not recorded.
+  const row = await prisma.mainWriteAnalysis.findFirst({ where: { id, userId: req.user!.id, unit, baseTaskId: taskId } });
+  const laterRevision = row && row.draft === 'first'
+    ? await prisma.mainWriteAnalysis.findFirst({ where: { userId: req.user!.id, unit, baseTaskId: taskId, draft: 'revised', createdAt: { gt: row.createdAt } }, orderBy: { createdAt: 'desc' } })
+    : null;
+  const bool = (v: unknown) => (typeof v === 'boolean' ? v : null);
+  const legacyText = typeof entry.text === 'string' && entry.text.trim() ? entry.text : null;
+  const draft: 'first' | 'revised' = (row?.draft as any) || entry.draft || 'first';
+  const revision = draft === 'first'
+    ? (laterRevision ? { text: laterRevision.text, analysedAt: laterRevision.createdAt.toISOString(), snapshot: true } : hasRevision ? { text: revText, analysedAt: null, snapshot: false } : null)
+    : null;
 
   const exportData: ExportFeedbackData = {
     unit,
@@ -292,15 +351,20 @@ aiRouter.get('/feedback/:unit/:taskId/:id/export', async (req: Request, res: Res
     taskTitle: found?.task?.title || taskId,
     taskObjective: `Target: ${found?.task?.min || '—'}–${found?.task?.max || '—'} words`,
     taskPrompt: found?.task?.prompt || '',
-    learnerText: learnerText || '(Text not found in current local/synced answers)',
-    words: entry.words || countWords(learnerText),
-    draft: entry.draft || 'first',
-    supportUsed: false,
-    createdAt: entry.at || new Date().toISOString(),
-    model: entry.model || config.ai.models.mainWrite || 'gpt-5.6-sol',
-    promptVersion: entry.promptVersion || 'main-write-v1',
-    feedback: entry.f,
-    revisionExists: hasRevision,
+    learnerText: row ? row.text : legacyText,
+    snapshot: !!row || !!legacyText,
+    words: row ? row.words : (entry.words || 0),
+    draft,
+    supportUsed: row ? row.supportUsed : bool(entry.support?.used),
+    supportLevel: row ? row.supportLevel : (typeof entry.support?.level === 'string' ? entry.support.level : null),
+    supportOpenedBeforeWriting: row ? row.supportOpenedBeforeWriting : bool(entry.support?.openedBeforeWriting),
+    createdAt: row ? row.createdAt.toISOString() : (entry.at || ''),
+    model: row ? row.model : (typeof entry.model === 'string' && entry.model ? entry.model : null),
+    promptVersion: row ? row.promptVersion : (typeof entry.promptVersion === 'string' && entry.promptVersion ? entry.promptVersion : null),
+    expectedRegister: row ? row.expectedRegister : null,
+    feedback: row ? row.feedback : entry.f,
+    revisionExists: hasRevision || !!laterRevision,
+    revision,
   };
 
   if (format === 'md' || format === 'markdown' || format === 'json') {
@@ -315,7 +379,7 @@ aiRouter.get('/feedback/:unit/:taskId/:id/export', async (req: Request, res: Res
     return;
   }
 
-  const pdf = generateFeedbackPdf(exportData);
+  const pdf = await pdfWithFallback(() => mainWriteHtml(exportData), `A Mind in English · Main Write feedback · Unit ${unit}`, () => generateFeedbackPdf(exportData));
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="feedback-unit${unit}-${taskId}.pdf"`);
   res.setHeader('Cache-Control', 'private, no-store');

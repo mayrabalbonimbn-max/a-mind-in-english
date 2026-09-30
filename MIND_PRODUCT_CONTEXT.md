@@ -217,12 +217,14 @@ Current curriculum state:
 -   Module Reviews 1--7: **IMPLEMENTED**
 -   Pronunciation in Context (Units 01--32): **IMPLEMENTED**
 -   Audio Production Guide (`MIND_AUDIO_RECORDING_GUIDE.md`): **IMPLEMENTED** with full scripts, voice casting, and speech pacing ready for studio/ElevenLabs generation.
+-   Recorded audio: **PARTIAL** --- only Units 01--10 and Module Reviews 1--2 have audio files; the rest is scripted but not yet recorded (see §15).
+-   Structural integrity (not yet deployed): every stage of Units 01--32 and Module Reviews 1--7 is validated against the fields the book actually renders, and a browser smoke renders all of them. Reviews 3--7 are reachable from the sidebar and by route (previously only Reviews 1--2 opened), and their activities render (Reviews 5--7 had been written without item types and showed nothing).
 
 Curriculum scale:
 
 -   32 Units (\~75–85 activities each);
 -   7 Comprehensive Module Reviews;
--   64 Unit Listening tracks + 14 Module Review Listening tracks (full scripts & exercises);
+-   64 Unit Listening tracks + 14 Module Review Listening tracks (full scripts & exercises; audio recorded for 24 of them);
 -   32 Unit Speaking prompts + 7 Module Review Speaking tasks;
 -   roughly 350–450 hours of deep study material;
 -   6 Long-form writing units (Units 10, 16, 20, 24, 27, 31) plus the Capstone essay (Unit 32, 1,200–1,800 words);
@@ -394,6 +396,10 @@ Current selections:
 -   U08 → T5
 -   U09 → T4
 -   U10 → T5
+-   U11 → T1
+-   U12 → T1
+-   U13 → T2
+-   U14--U32 → T1
 
 The selected THINK should, where possible, feed meaningfully into the
 Unit's main writing.
@@ -402,11 +408,16 @@ Unit's main writing.
 
 ## 12. WRITE
 
-**Status: IMPLEMENTED; Main Write enhancement IN DEVELOPMENT**
+**Status: IMPLEMENTED (including Main Write feedback via GPT-5.6 Sol; see
+Part X)**
 
 WRITE contains shorter open production and longer writing.
 
-Each Unit has a principal **MAIN WRITE / MAIN TEXT**.
+Each Unit has a principal **MAIN WRITE / MAIN TEXT** (marked as the
+task that goes into the Writing Portfolio and as Core).
+
+Writing tasks may include an optional outline step with its own AI
+outline feedback before drafting.
 
 The Main Text is treated as the most pedagogically important production
 in the Unit.
@@ -423,8 +434,8 @@ feedback → revises independently**
 
 ## 13. EDIT and revision history
 
-**Status: existing EDIT IMPLEMENTED; stronger version preservation IN
-DEVELOPMENT**
+**Status: IMPLEMENTED (Draft 1 and Draft 2 stored separately; feedback
+never modifies drafts)**
 
 EDIT should center the learner's own revision.
 
@@ -447,6 +458,17 @@ This sequence is valuable evidence because it distinguishes:
 Future feedback on Draft 2 should be a separate/versioned analysis, not
 a mutation of the Draft 1 analysis.
 
+**Main Write snapshot semantics (IMPLEMENTED, not yet deployed):** when
+a Main Write analysis succeeds, the server stores an append-only record
+of it: the exact text analysed (a snapshot, never the live field), the
+model and prompt version actually used, the expected register, the
+feedback and the Writing Support facts at submission. In a Unit, the
+analysed Draft 1 is then read-only; "start Draft 2" copies it into the
+separate Draft 2 (EDIT), and the learner revises there. Draft 2 analyses
+are separate records. History is never trimmed. Module Review main tasks
+have no Draft 2 task, so their Draft 1 is not frozen, but every analysis
+of them is still kept as a snapshot.
+
 ------------------------------------------------------------------------
 
 ## 14. RETRIEVE
@@ -462,18 +484,48 @@ performance.
 
 RETRIEVE is protected from automatic curriculum modification.
 
+### Personal Retrieval
+
+**Status: IMPLEMENTED (deterministic, zero AI calls)**
+
+Within RETRIEVE, the product picks a small spaced dose of the learner's
+own Glossary `LEARNING` items and Error Log entries from **earlier**
+Units.
+
+-   Spacing gaps grow with each showing (0, 2, 4, 8, 16, 30 days);
+-   selection is deterministic per day, so it is the same on every
+    device;
+-   the learner may shuffle to other due items;
+-   marking an Error Log item as reviewed increments its review count.
+
+It reuses existing learner material; it never generates new exercises.
+
 ------------------------------------------------------------------------
 
 ## 15. Listening
 
-**Status: IMPLEMENTED; expansion DEFERRED**
+**Status: IMPLEMENTED for Units 01--10 and Module Reviews 1--2; audio for
+the rest PLANNED**
 
-The product currently has roughly 24 audio assets.
+The product currently has 24 recorded audio assets: two per Unit for
+Units 01--10 and two per Review for Module Reviews 1--2.
+
+Units 11--32 and Module Reviews 3--7 already contain listening scripts
+and exercises; their recordings do not exist yet. Recording them is
+tracked in `MIND_AUDIO_RECORDING_GUIDE.md`.
+
+**Media readiness:** a listening is either recorded (its file exists and
+is checked) or explicitly not ready (`audioReady: false`). A track that
+is not ready shows a notice and a preview of its passes and questions:
+no player, no answering, no transcript standing in for the audio, and
+nothing counted against progress. Work submitted earlier stays visible.
+
+Listening activities follow a multi-pass structure (gist → evidence →
+framing language) and support AI feedback on open answers.
 
 Current decision:
 
-**Do not generate more audio yet. Use and validate the existing audio
-first.**
+**Use and validate the existing audio before generating more.**
 
 Some current audio may sound too much like written essays being read
 aloud.
@@ -517,6 +569,16 @@ They may be used cautiously for:
 -   lexical range;
 -   attempted production;
 -   idea development.
+
+All Units and Reviews use one speaking contract (task, preparation,
+timing, targets, rubric). Units 23--32 were written as a three-part
+card; their canonical task is built from their own words and the full
+card is kept.
+
+Privacy: recordings stay in the browser's IndexedDB. Only transcript,
+feedback and metadata sync. Speaking feedback is transcript-only, and the
+UI says so. Corrections from speaking feedback can be sent to the Error
+Log by the learner.
 
 ------------------------------------------------------------------------
 
@@ -562,10 +624,13 @@ Notebook-related features include:
 
 -   Glossary;
 -   Error Log;
--   Bookmarks;
--   Writing Portfolio;
--   Current Affairs;
--   Search.
+-   Bookmarks (words, chunks, paragraphs, questions);
+-   Writing Portfolio (every writing task with first and revised drafts,
+    word counts and status; setting a task to "Final" records the date);
+-   Current Affairs Lab (a reusable structure for reading the news, with
+    export);
+-   Search;
+-   Learning Review (see Part VI).
 
 ### Language Bank
 
@@ -664,11 +729,42 @@ It can provide:
 -   USEFUL LANGUAGE;
 -   WRITING TIPS.
 
-Current support intensity:
+### Writing Support intensity
 
--   HIGH → Units 01--02
--   MEDIUM → Units 03--05
--   LIGHT → Units 06--10 / Reviews
+**Status: IMPLEMENTED and deployed (2026-09-30)**
+
+Levels: **HIGH · MEDIUM · LIGHT · OFF**. A level means only "how much
+language scaffolding I want available for this task". It is not a
+difficulty setting and not a judgment of ability: HIGH is not weaker,
+OFF is not stronger. No level carries score, reward, badge, streak,
+penalty or any mastery/CEFR effect.
+
+-   **Default** comes from the Unit: HIGH → Units 01--02; MEDIUM →
+    Units 03--05; LIGHT → Units 06--32 / Reviews.
+-   **Learner override** per activity: the learner may choose any level
+    for any eligible activity, in any direction; the choice is kept for
+    that activity only and never becomes a global preference.
+-   HIGH shows the register explanation, more frames, step-by-step tips
+    and "before you write" for writing; MEDIUM keeps register, a few
+    frames and one tip; LIGHT is a reminder (register, two frames, one
+    check); a collapsed "need more support?" stays available at HIGH,
+    MEDIUM and LIGHT. OFF shows no support; the task itself is unchanged.
+-   The panel stays collapsed whatever the level; choosing a level is
+    not opening it.
+-   Eligibility is unchanged by the levels (no support on Timed
+    Challenge, RETRIEVE, NOTICE, STEAL, EDIT or objective items).
+
+**Provenance: selected level ≠ actual use.** The book records, per
+activity, the level chosen and, separately, whether support was actually
+opened (first opening only: when, at which level, and whether anything
+had been written yet). Selecting a level alone is never `support_used`;
+OFF is never `support_used`. No keystrokes or extra text are recorded.
+
+The Learning Review receives these facts as context only. It may
+describe habits across tasks (for example, starting independently and
+opening support later) but must not treat a level as evidence of
+ability, and it cannot change any level. Suggesting a level in the
+future would be a proposal only: **AI proposes, learner decides.**
 
 It may appear in relevant open KNOW/INTERPRET/THINK/WRITE/review
 contexts.
@@ -690,12 +786,17 @@ whenever possible.
 
 ## 24. Core / Optional
 
-**Status: IMPLEMENTED as presentation metadata**
+**Status: IMPLEMENTED as presentation metadata for all 32 Units**
 
 Core/Optional was added to reduce the feeling that every one of \~75--83
 activities must be completed.
 
 Nothing was removed or blocked.
+
+Core per Unit: READ; three INTERPRET items (main idea plus the two
+closest to the THINK focus); the principal NOTICE focus; four STEAL
+frames; one THINK; the Main WRITE; EDIT; RETRIEVE r1, r2 and r7. KNOW
+and all unmarked activities are extra practice.
 
 Core is the pedagogical spine.
 
@@ -712,6 +813,69 @@ Audit whether visual completion/progress should eventually be Core-based
 while Optional behaves like a practice library.
 
 Do not change this silently.
+
+------------------------------------------------------------------------
+
+## 24a. On-demand AI help and feedback tools
+
+**Status: IMPLEMENTED**
+
+Every AI action is started by the learner. None rewrites or saves learner
+work automatically. Each has its own model, reasoning setting and hourly
+rate limit (see §51).
+
+-   **Writing feedback** --- structured feedback on open writing, saved
+    in the Writing Portfolio; suggestions can be sent to the Error Log.
+    Main Write tasks use the Sol path (Part X).
+-   **Outline feedback** --- feedback on a plan before drafting.
+-   **Light language feedback** --- brief language feedback on short open
+    answers (including the "why" of True/False items), with an optional
+    Error Log candidate.
+-   **Interpret feedback** --- feedback on open INTERPRET answers (§8).
+-   **Explain this question** --- clarifies what a question is asking,
+    without answering it.
+-   **Explain selection** --- select text to get an explanation, save it
+    to the Glossary, or compare registers (§22).
+-   **Listening feedback** --- feedback on open listening answers.
+-   **Speaking feedback** --- transcript-based feedback (§16).
+-   **Teacher Lens** (Module Reviews only, optional) --- explains one
+    point; secondary to the learner's own study.
+
+------------------------------------------------------------------------
+
+## 24b. Timed Essay
+
+**Status: IMPLEMENTED (Module Reviews)**
+
+The Module Review synthesis includes a timed essay: the learner starts
+the clock, writes against a countdown and submits; feedback becomes
+available only after submission. An attempt can be discarded (with
+confirmation) and restarted.
+
+------------------------------------------------------------------------
+
+## 24c. Reading and study tools
+
+**Status: IMPLEMENTED**
+
+-   Focus mode, adjustable font size and column width;
+-   "reveal what you missed" and "compare with one edited version" on
+    Reviews;
+-   per-Unit Markdown export (copy or download) of the learner's work;
+-   copy writing, reset Unit (with confirmation);
+-   JSON backup and restore;
+-   installable web app (PWA manifest and icons).
+
+------------------------------------------------------------------------
+
+## 24d. Demo Mode
+
+**Status: IMPLEMENTED**
+
+Demo accounts (`isDemo` on the user, the only source of truth) are
+read-only: no saving, sync, backup/restore, recording, transcription,
+AI feedback or Learning Review. Demo users are never included in the
+nightly Learning Review.
 
 ------------------------------------------------------------------------
 
@@ -756,7 +920,7 @@ Adaptive Learning development began.
 
 ## 26. Adaptive Learning purpose
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Adaptive Learning is approved.
 
@@ -797,7 +961,7 @@ The AI has no authority to modify a Unit automatically.
 
 ## 27. Factual Learning Ledger vs Pedagogical Hypotheses
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The system must keep two conceptual layers separate.
 
@@ -846,7 +1010,7 @@ references whenever practical.
 
 ## 28. Evidence provenance and quality
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Evidence should distinguish, when available:
 
@@ -879,7 +1043,7 @@ unquestioned learner truth.
 
 ## 29. Opportunities
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Raw error count is not enough.
 
@@ -910,7 +1074,7 @@ Never invent a denominator.
 
 ## 30. Positive and counter-evidence
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The learner model must not become a catalogue of defects.
 
@@ -930,7 +1094,7 @@ Counter-evidence should prevent false recurring patterns.
 
 ## 31. Pattern thresholds
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 A simple rule such as `N occurrences = recurring` is insufficient.
 
@@ -966,7 +1130,7 @@ Avoid pseudo-precise mastery scores.
 
 ## 32. Recognition → Production
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Recognition → Production is evidence framing, not a mastery meter.
 
@@ -993,7 +1157,7 @@ not mere absence of a form.
 
 ## 33. Learning Review
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Learning Review asks:
 
@@ -1029,7 +1193,7 @@ Abstention is a feature, not a failure.
 
 ## 34. Incremental analysis
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Learning Review should process:
 
@@ -1052,7 +1216,7 @@ Avoid recursive AI summaries becoming the learner model.
 
 ## 35. Next Session
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 A Learning Review may produce at most 2--3 small, actionable priorities.
 
@@ -1070,7 +1234,7 @@ The report should not become a list of defects.
 
 ## 36. Human judgment
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The learner should be able to respond to AI interpretations with:
 
@@ -1094,13 +1258,23 @@ The interface should preserve:
 **HUMAN JUDGMENT**\
 **PROPOSAL**
 
+Persistence (IMPLEMENTED, not yet deployed): judgments are stored on the
+server (with the time they were made) and shown on every device, in the
+page and in the PDF, Markdown and JSON exports. Choosing the same
+judgment again clears it on the server too. A judgment never changes
+evidence or the stored report. A disagreement applies to the hypothesis
+as it stood when judged: without new supporting evidence it stays
+rejected and its proposals are suppressed; new evidence after it may
+start a **new** hypothesis built only from that evidence, judged afresh,
+while the rejected version stays in the pattern's history.
+
 ------------------------------------------------------------------------
 
 # PART VII --- STUDY TIMER AND AUTOMATIC REVIEW
 
 ## 37. Study Timer
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The learner explicitly starts and stops a study session.
 
@@ -1120,6 +1294,30 @@ Desired behavior:
 
 A forgotten timer must not silently record an absurd study duration.
 
+Current behavior: a Study Timer widget in the desktop sidebar (between
+the account box and Progress) and in the mobile top bar shows minutes
+studied today and the running session; sessions are stored in the synced
+`study-timer` document (merged by session id across devices, never
+dropped).
+
+There is **no maximum session length**: a confirmed long session counts
+in full. Protection is against abandonment only, based on the last
+reliable moment:
+
+-   while the app runs with the timer on, a heartbeat records it as
+    alive; if the app stops running for a long gap (closed, device
+    asleep), the session ends at the last heartbeat and the learner is
+    told what was not counted;
+-   after a long unconfirmed stretch the learner is asked "Still
+    studying?"; confirming (or pausing) keeps every minute, and an
+    unanswered question ends the session where it was asked.
+
+Nothing is inferred from mouse, keyboard or scroll activity.
+
+"X min today" is presentation only. Learning Review eligibility uses
+study time recorded since the last **successful** review (§38), across
+days.
+
 Study time is **not evidence of mastery**.
 
 It is context and an eligibility signal for automatic Learning Review.
@@ -1128,7 +1326,7 @@ It is context and an eligibility signal for automatic Learning Review.
 
 ## 38. Nightly Learning Review
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Automatic Learning Review remains part of the approved design.
 
@@ -1165,11 +1363,20 @@ A failed review must not consume the boundary.
 The 60-minute threshold is an eligibility signal, not a claim about
 learning quality.
 
+Current operational gates:
+
+-   the nightly job runs from the server crontab (04:30), not inside the
+    web process;
+-   it does nothing unless `LEARNING_REVIEW_NIGHTLY=true` and the
+    Learning Review model is configured;
+-   it only includes learners whose **first** review was started by hand
+    via Run Review Now, and never demo accounts.
+
 ------------------------------------------------------------------------
 
 ## 39. Run Review Now
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 A manual `Run review now` action uses the **same pipeline** as nightly
 execution.
@@ -1189,11 +1396,18 @@ and show a clear message such as:
 
 The previous successful report must remain available if a new run fails.
 
+Current behavior: the 60-minute study threshold applies to nightly runs
+only. The Learning Review needs its own model configured on the server
+(intended: GPT-5.4 Nano), independent of the Main Write model; without
+it the page states that it is not configured and nothing is analysed. Manual runs that reach the AI are rate-limited (default 4 per
+hour); a click with nothing new never counts. Evidence per run is capped
+(default 60 items); the rest is deferred to the next run, never dropped.
+
 ------------------------------------------------------------------------
 
 ## 40. Idempotency and concurrency
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Manual and nightly runs may overlap.
 
@@ -1225,7 +1439,7 @@ Logs must not contain learner content.
 
 ## 41. Proposed Next-Unit Adaptations
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED as proposals only (codebase; production rollout: see §70)**
 
 Adaptive Learning may propose an adaptation for a future/unstarted Unit.
 
@@ -1256,7 +1470,7 @@ change.
 
 ## 42. Workload budget
 
-**Status: IN DEVELOPMENT / design principle**
+**Status: design principle**
 
 Activity count alone is not workload.
 
@@ -1359,7 +1573,7 @@ Do not destroy the current Reviews while developing this system.
 
 ## 46. Main Write model routing
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The Main Text is important enough to justify a stronger model.
 
@@ -1389,7 +1603,7 @@ unless separately changed.
 
 ## 47. Main Write feedback goals
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Main Write feedback should examine at least:
 
@@ -1471,7 +1685,7 @@ The intended flow is:
 
 ## 49. Main Write evidence
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 The system should preserve enough provenance to distinguish:
 
@@ -1486,6 +1700,26 @@ Do not overwrite Draft 1.
 Do not overwrite the original Sol analysis.
 
 Future Draft 2 analysis should be separately versioned.
+
+Current behavior (IMPLEMENTED, not yet deployed): see the snapshot
+semantics in §13. Each analysis records what really happened; an older
+analysis that did not record something (text, model, prompt version,
+support) shows it as not recorded, never inferred from today's
+configuration or the current draft. Writing Support facts follow §23:
+`supportUsed` is true only if the panel was actually opened;
+`supportOpenedBeforeWriting` says whether anything had been written
+first; unknown stays unknown.
+
+**Expected register** comes from the task's own metadata (its kind):
+personal or reflective tasks expect a natural personal voice; analytical
+and argumentative tasks an appropriately formal, calibrated one; a task
+whose kind says nothing uses a neutral default. The feedback is told that
+formality is not quality.
+
+**Quota:** Main Write feedback has its own hourly per-learner limit
+(default 6), separate from all other feedback (default 12); requests
+rejected as invalid do not count. The server alone decides whether a
+task is a Main Write.
 
 ------------------------------------------------------------------------
 
@@ -1517,6 +1751,13 @@ Do not pay a model to do bookkeeping that code can do reliably.
 
 Nano remains appropriate for frequent structured work where it is
 sufficient, including the initial Learning Review design.
+
+Routing is configured **per AI function** (explain, writing, main write,
+speaking feedback, listening, outline, teacher lens, light language,
+interpret item, explain question, character chat, conversation help,
+conversation review, register compare, Learning Review), each with its
+own optional reasoning-effort setting. There is no global fallback: an
+empty model disables only that function. Whisper handles transcription.
 
 The architecture should allow the Learning Review model to be changed
 independently later.
@@ -1571,7 +1812,7 @@ branding.
 
 ## 54. Learning Review PDF
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Learning Review should be exportable on demand as a self-contained PDF
 for external human/AI review.
@@ -1612,11 +1853,18 @@ Do not include:
 
 PDF is generated **on demand**, not automatically every night.
 
+**Visual design (IMPLEMENTED, not yet deployed):** the Learning Review
+and Main Write feedback PDFs follow the approved visual models kept in
+`modelo pdf/` (layout only; every word of content comes from the
+persisted analysis). They are rendered by a headless Chromium with the
+book's own fonts embedded; with no Chromium available, the export falls
+back to a plain PDF instead of failing.
+
 ------------------------------------------------------------------------
 
 ## 55. Learning Review audit export
 
-**Status: IN DEVELOPMENT / optional where low-cost**
+**Status: IMPLEMENTED (Markdown and JSON; codebase; production rollout: see §70)**
 
 A structured Markdown and/or JSON export is desirable for auditability
 and sharing with another AI.
@@ -1641,7 +1889,7 @@ The factual ledger remains authoritative.
 
 ## 56. Main Write feedback export
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED (codebase; production rollout: see §70)**
 
 Sol feedback must be exportable so it can be audited externally.
 
@@ -1979,51 +2227,40 @@ deploy.
 
 ## 70. Adaptive Learning implementation state
 
-**Status: IN DEVELOPMENT**
+**Status: IMPLEMENTED and deployed to production (2026-09-30)**
 
-An implementation round began after the stable maintenance baseline.
+The Adaptive Learning round is implemented in the codebase:
 
-The interrupted/continuing implementation has included or begun work on:
-
--   evidence/data audit;
--   sync architecture audit;
--   Profile evidence audit;
--   feedback schema audit;
--   production scheduling infrastructure audit;
--   Module Review audit;
--   Prisma schema/migration in test environment;
--   evidence extractor;
--   Learning Review structured schema;
--   Learning Review prompt;
--   deterministic merge/guards;
--   incremental pipeline;
--   PDF generation;
--   API routes;
--   nightly CLI;
--   Learning Review UI;
--   app integration;
--   Learning Review tests.
-
-Known/new work that may not yet be fully represented in the partial
-implementation includes:
-
--   opportunities;
--   stronger positive/counter-evidence;
--   richer provenance;
--   independent vs support distinctions;
--   before/after-feedback distinctions;
--   Study Timer;
--   60-minute accumulated eligibility;
--   human Agree/Disagree/Not sure;
--   strict factual ledger vs hypothesis separation;
--   GPT-5.6 Sol routing for Main Write;
--   richer Main Write taxonomy;
--   Main Write PDF/Markdown export;
+-   evidence extractor with provenance, opportunities and
+    positive/counter-evidence;
+-   factual ledger kept separate from AI hypotheses (deterministic merge
+    and guards);
+-   incremental pipeline with DB lease, run records and safe failure;
+-   Learning Review schema, prompt, UI (`#learning`) and API;
+-   human Agree / Disagree / Not sure, with rejected hypotheses
+    suppressed;
+-   next-Unit adaptation proposals (proposal only);
+-   Study Timer and 60-minute accumulated eligibility for nightly runs;
+-   nightly CLI (crontab, opt-in by environment flag);
+-   Learning Review PDF, Markdown and JSON exports;
+-   GPT-5.6 Sol routing, richer taxonomy and PDF/Markdown export for
+    Main Write feedback;
 -   Draft 1 → feedback → Draft 2 preservation;
--   future adaptive/blind Module Review split.
+-   Prisma migration `learning_review` and tests.
 
-Agents continuing this work must inspect the actual code, git diff,
-migrations and tests before assuming any item above is complete.
+Production state (verified on the server at deploy):
+
+-   the code and the `learning_review` migration are live;
+-   the Learning Review has its own model configured (GPT-5.4 Nano),
+    independent of Main Write;
+-   the nightly job is **off** (`LEARNING_REVIEW_NIGHTLY=false`, no
+    crontab entry);
+-   no Learning Review has run yet: the first real review is reserved
+    for the learner (§61).
+
+Main Write's model is not set explicitly on the server (the code default
+applies); verify before describing Sol feedback as validated in use. The adaptive/blind
+Module Review split remains PLANNED (§45).
 
 ------------------------------------------------------------------------
 
@@ -2039,12 +2276,20 @@ At a high level:
 -   Audio Recording & Production Guide (`MIND_AUDIO_RECORDING_GUIDE.md`);
 -   Core / Optional activity mapping for all 32 Units;
 -   KNOW / READ / INTERPRET / NOTICE / STEAL / THINK / WRITE / EDIT /
--   RETRIEVE complete stage flows across all 32 units;
+    RETRIEVE complete stage flows across all 32 units;
 -   speaking recording/transcription flow;
+-   recorded audio for Units 01--10 and Module Reviews 1--2 (24 files);
 -   Unit 01 Narrator;
 -   Glossary;
 -   Error Log;
--   Notebook tools;
+-   Personal Retrieval (spaced, deterministic);
+-   Notebook tools (Bookmarks, Writing Portfolio, Current Affairs Lab,
+    Search);
+-   on-demand AI tools (writing, outline, light, interpret, listening
+    and speaking feedback; explain question/selection; Teacher Lens);
+-   Timed Essay in Module Reviews;
+-   reading tools, Markdown export, JSON backup/restore, PWA;
+-   Demo Mode (read-only, no AI);
 -   conservative English Profile behavior;
 -   Compare Registers;
 -   deterministic Writing Support;
@@ -2063,17 +2308,21 @@ At a high level:
 -   Idempotency, lease safety and concurrency protections;
 -   stable pre-Adaptive maintenance release.
 
+Adaptive Learning items above are implemented in the codebase; see §70
+for production status.
+
 ------------------------------------------------------------------------
 
 ## 72. IN DEVELOPMENT
 
--   (All planned 32 units, 7 module reviews, and curriculum content deliverables completed and verified).
+-   (none in active development; see §73 for what comes next)
 
 ------------------------------------------------------------------------
 
 ## 73. PLANNED
 
--   audio asset recording via ElevenLabs using `MIND_AUDIO_RECORDING_GUIDE.md`;
+-   audio recording for Units 11--32 and Module Reviews 3--7 via
+    ElevenLabs using `MIND_AUDIO_RECORDING_GUIDE.md`;
 -   validation of the first real Learning Review by the learner after deployment;
 -   deliberate Nano/Luna/Sol Main Write benchmark if useful;
 -   possible future change of Learning Review model if evidence shows
@@ -2150,3 +2399,12 @@ Never:
 And the learner-facing heart of the product remains:
 
 > **Read. Think. Write.**
+
+## Visual system · MIND (2026-09-30, local, not deployed)
+
+-   Brand: the visible wordmark, cover lockup, seal monogram, arch caption, sidebar footer, letter signature and Markdown export header say MIND (was KLANG). Technical names stay: `window.KLANG*` globals, `klang.mind.*` storage keys, `klang.gate.msg`, `klang_session` cookie, `klang-private-recordings-v1` IndexedDB — renaming them would orphan saved data or sessions.
+-   Palette: pink editorial. Semantic tokens in `public/styles.css :root` (`--bg`, `--bg-subtle`, `--surface*`, `--text*`, `--accent*`, `--border*`, `--interactive*`, `--success/warning/error/info/neutral`); legacy names (`--esp`, `--creme`, `--rosa`, `--ink`…) map onto them. Former dark contexts re-point their on-dark tokens to espresso ink in one scoped rule. Espresso is ink, lines, small marks and the primary CTA only.
+-   Sidebar = table of contents: continue CTA, search, MODULES, NOTEBOOK; account + sync, Study Timer and progress in one strip docked at the sidebar foot (order ACCOUNT → TIMER → PROGRESS kept).
+-   Learning Review page groups the same persisted report as: At a glance · What's working · Patterns · Since last review · Next session · Proposals · Uncertainties · Evidence (evidence behind `details`). FACT / AI INTERPRETATION / YOUR JUDGMENT / PROPOSAL tags kept. PDFs unchanged.
+-   Edit labels: "Draft 1 — as analysed" and "Draft 2 — your revision". Portfolio/feedback chips say "Feedback" (not "AI feedback").
+-   No behaviour change: no scoring, pedagogy, sync, auth, prompts, timer logic or curriculum touched.

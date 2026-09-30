@@ -271,7 +271,7 @@
     }
   });
 
-  K.units['28'].listening = [
+  K.units['28'].listening = K.pendingListening('28', [
     {
       id: '28l1',
       title: 'Dialogue: The Rhetoric of the Climate Campaign',
@@ -344,9 +344,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['28'].speaking = {
+  K.units['28'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `Have you ever felt manipulated by an advertisement or a pushy salesperson? What specific tactics did they use?`, guide: `Describe the situation, the pressure tactics (artificial scarcity, guilt, flattery), and how you felt afterward.` },
       { q: `When trying to convince a friend or family member to make a positive life change, what approach do you find most effective?`, guide: `Discuss balancing empathy, offering clear reasons, avoiding nagging, and respecting their personal timeline.` },
@@ -374,5 +374,5 @@
       discourse: `Coherent, articulate argumentation distinguishing ethical communicative rationality from covert strategic manipulation.`,
       vocabulary: `Effective use of terms such as 'the classical triad', 'communicative rationality', 'dark patterns', 'epistemic sovereignty', and 'the unforced force of the better argument'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

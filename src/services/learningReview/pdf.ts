@@ -109,6 +109,10 @@ function observation(d: Doc, o: ReportObservation) {
   d.text(`${STATUS_LABEL[o.status]} · ${o.confidence} confidence · ${o.evidenceCount} piece${o.evidenceCount === 1 ? '' : 's'} of evidence in ${o.activityCount} activit${o.activityCount === 1 ? 'y' : 'ies'} · first seen ${day(o.firstSeen)} · last seen ${day(o.lastSeen)}`, { size: 8.5, gray: 0.35, after: 3 });
   d.text('AI INTERPRETATION', { size: 7.5, bold: true, gray: 0.4, indent: 12, after: 1 });
   d.text(o.interpretation + (o.implication ? `\nImplication: ${o.implication}` : ''), { size: 9.5, indent: 12, after: 3 });
+  if (o.humanJudgment) {
+    d.text('HUMAN JUDGMENT', { size: 7.5, bold: true, gray: 0.4, indent: 12, after: 1 });
+    d.text(({ agree: 'Agree', disagree: 'Disagree', not_sure: 'Not sure' } as Record<string, string>)[o.humanJudgment] || o.humanJudgment, { size: 9.5, indent: 12, after: 3 });
+  }
   evidenceBlock(d, o.evidence);
   if (o.counterEvidence.length) evidenceBlock(d, o.counterEvidence, 'FACT · Where it went well');
   d.gap(8);

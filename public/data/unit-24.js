@@ -277,7 +277,7 @@
     }
   });
 
-  K.units['24'].listening = [
+  K.units['24'].listening = K.pendingListening('24', [
     {
       id: '24l1',
       title: 'Dialogue: Access, Consent and the Sacred Sanctuary',
@@ -350,9 +350,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['24'].speaking = {
+  K.units['24'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `Have you ever visited a sacred place (such as a church, temple, or historic memorial) where photography was prohibited? How did you feel about that rule?`, guide: `Describe the location, the specific restrictions in place, and your personal reflection on why silence and non-recording were required.` },
       { q: `Do you think taking selfies in places of solemn historical tragedy or religious worship is ever acceptable? Why or why not?`, guide: `Discuss the boundary between personal memory and disrespectful self-promotion (moral voyeurism).` },
@@ -380,5 +380,5 @@
       discourse: `Seamless progression through multifaceted ethical dilemmas, balancing intellectual empathy with principled critical evaluation.`,
       vocabulary: `Accurate application of core concepts including 'extractive documentation', 'visual stewardship', 'the secular gaze', and 'the right to opacity'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

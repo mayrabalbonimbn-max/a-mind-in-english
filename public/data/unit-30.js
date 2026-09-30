@@ -273,7 +273,7 @@
     }
   });
 
-  K.units['30'].listening = [
+  K.units['30'].listening = K.pendingListening('30', [
     {
       id: '30l1',
       title: 'Dialogue: Escaping the Thesaurus Trap',
@@ -346,9 +346,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['30'].speaking = {
+  K.units['30'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When you write an email or text message in English, do you feel like you are expressing your true personality or playing a role?`, guide: `Discuss linguistic identity, comfort levels, humor, and the transition from translation to spontaneous expression.` },
       { q: `Do you prefer reading books that have an informal, conversational style or those with formal, academic prose? Why?`, guide: `Compare the warmth and accessibility of conversational style with the precision and gravity of formal prose.` },
@@ -376,5 +376,5 @@
       discourse: `Fluent, engaging reflections on the craft of writing, linguistic identity, and stylistic discipline.`,
       vocabulary: `Effective use of terms such as 'authorial voice', 'syntactic modulation', 'thesaurus trap', 'crystalline clarity', and 'the unvarnished truth'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

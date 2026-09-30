@@ -17,6 +17,36 @@ export type Confidence = 'low' | 'moderate' | 'high';
 export type Status = 'one_off' | 'possible_pattern' | 'recurring' | 'improving' | 'apparently_resolved'
   | 'emerging' | 'getting_stronger' | 'recognition_to_production' | 'rejected_by_human';
 export type HumanJudgment = 'agree' | 'disagree' | 'not_sure';
+/** A human judgment as stored: what and when. Older stores hold a bare string (time unknown). */
+export interface JudgmentRecord { judgment: HumanJudgment; at: string | null }
+export const JUDGMENTS: HumanJudgment[] = ['agree', 'disagree', 'not_sure'];
+export function normalizeJudgments(raw: unknown): Record<string, JudgmentRecord> {
+  const out: Record<string, JudgmentRecord> = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const [k, v] of Object.entries(raw as Record<string, any>)) {
+    if (typeof v === 'string' && JUDGMENTS.includes(v as HumanJudgment)) out[k] = { judgment: v as HumanJudgment, at: null };
+    else if (v && typeof v === 'object' && JUDGMENTS.includes(v.judgment)) out[k] = { judgment: v.judgment, at: typeof v.at === 'string' ? v.at : null };
+  }
+  return out;
+}
+/** A judgment belongs to the hypothesis as it stood when it was made: once new evidence has reopened
+    the hypothesis, an older judgment no longer applies (it stays in the pattern's history). */
+export function judgmentApplies(hypothesisSince: string | undefined, j: JudgmentRecord | undefined): j is JudgmentRecord {
+  return !!j && (!hypothesisSince || !j.at || j.at >= hypothesisSince);
+}
+/** The report as the learner sees it now: current judgments over the stored report (never changes facts). */
+export function withCurrentJudgments<T extends { sections?: any }>(report: T, judgments: Record<string, JudgmentRecord>): T {
+  const r = JSON.parse(JSON.stringify(report));
+  for (const list of Object.values<any>(r.sections || {})) {
+    if (!Array.isArray(list)) continue;
+    for (const o of list) {
+      if (!o || typeof o !== 'object' || !('interpretation' in o)) continue;
+      const j = judgments[o.key];
+      o.humanJudgment = judgmentApplies(o.hypothesisSince, j) ? j.judgment : null;
+    }
+  }
+  return r;
+}
 
 export interface EvRef {
   id: string;
@@ -50,6 +80,8 @@ export interface PatternState {
   implication: string;
   humanJudgment?: HumanJudgment | null;
   opportunitySummary?: string;
+  /** When this hypothesis began (a new one after a rejection starts again); absent in older states */
+  hypothesisSince?: string;
   history: { runId: string; at: string; status: Status; humanJudgment?: HumanJudgment | null }[];
 }
 
@@ -69,6 +101,7 @@ export interface ReportObservation {
   counterEvidence: EvRef[];
   humanJudgment?: HumanJudgment | null;
   opportunitySummary?: string;
+  hypothesisSince?: string;
 }
 
 export interface ReportProposal {
@@ -204,13 +237,14 @@ export interface MergeInput {
   nextUnit: { id: string; title: string; candidates: ActivityInfo[] } | null;
   model: { name: string; reasoning: string; promptVersion: string };
   hintPairs: { glossaryId: string; productionId: string }[];
-  judgments?: Record<string, HumanJudgment>;
-  humanJudgments?: Record<string, HumanJudgment>;
+  judgments?: Record<string, HumanJudgment | JudgmentRecord>;
+  humanJudgments?: Record<string, HumanJudgment | JudgmentRecord>;
 }
 
 export function mergeReview(input: MergeInput): { report: LearningReport; patterns: PatternState[] } {
   const { runId, now, batch, prior, output } = input;
-  const judgments = input.humanJudgments || input.judgments || {};
+  // The stored judgments are the only source: a cleared judgment is simply absent
+  const judgments = normalizeJudgments(input.humanJudgments || input.judgments || {});
   const byRef = new Map<string, EvidenceItem>();
   batch.forEach((e) => { const r = input.refs.get(e.id); if (r && r.startsWith('E')) byRef.set(r, e); });
   const resolve = (refs: string[]) => uniq((refs || []).map((r) => byRef.get(String(r).trim().toUpperCase())).filter(Boolean).map((e) => toRef(e!, runId)));
@@ -219,7 +253,8 @@ export function mergeReview(input: MergeInput): { report: LearningReport; patter
 
   const patterns = new Map<string, PatternState>(prior.map((p) => {
     const clone: PatternState = JSON.parse(JSON.stringify(p));
-    if (judgments[clone.key]) clone.humanJudgment = judgments[clone.key];
+    const j = judgments[clone.key];
+    clone.humanJudgment = judgmentApplies(clone.hypothesisSince, j) ? j.judgment : null;
     return [clone.key, clone];
   }));
   const touched: { p: PatternState; newFor: EvRef[]; newAgainst: EvRef[] }[] = [];
@@ -231,18 +266,24 @@ export function mergeReview(input: MergeInput): { report: LearningReport; patter
     const key = pm ? pm.key : normKey(o.patternKey);
     const before = patterns.get(key);
 
-    const currentJudgment = judgments[key] || before?.humanJudgment || null;
+    const j = judgments[key];
+    const judged = judgmentApplies(before?.hypothesisSince, j) ? j.judgment : null;
+    // New evidence after a rejection: a NEW hypothesis built only from the new evidence, judged afresh.
+    // The rejected version is not deleted: it stays in the history as rejected_by_human + disagree.
+    const reopen = judged === 'disagree' && newFor.length > 0;
+    const prev = reopen ? undefined : before;
+    const currentJudgment = reopen ? null : judged;
     const wasRejected = currentJudgment === 'disagree';
 
     const difficultyTrack = ['difficulty', 'improving', 'resolved'].includes(o.kind);
     let status: Status, track: 'difficulty' | 'positive' = difficultyTrack ? 'difficulty' : 'positive';
-    let allFor = uniq([...(before && !wasRejected ? before.evidence : []), ...newFor]);
-    const allAgainst = uniq([...(before?.counterEvidence || []), ...newAgainst]);
-    const priorDifficulty = before && !wasRejected && before.track === 'difficulty' && before.evidence.length > 0;
+    let allFor = uniq([...(prev && !wasRejected ? prev.evidence : []), ...newFor]);
+    const allAgainst = uniq([...(prev?.counterEvidence || []), ...newAgainst]);
+    const priorDifficulty = prev && !wasRejected && prev.track === 'difficulty' && prev.evidence.length > 0;
 
     if (wasRejected) {
       status = 'rejected_by_human';
-    } else if (o.kind === 'resolved' && priorDifficulty && ['recurring', 'improving', 'possible_pattern'].includes(before!.status)
+    } else if (o.kind === 'resolved' && priorDifficulty && ['recurring', 'improving', 'possible_pattern'].includes(prev!.status)
       && newAgainst.length >= 2 && activities(newAgainst) >= 2 && newFor.length === 0) {
       status = 'apparently_resolved';
     } else if ((o.kind === 'resolved' || o.kind === 'improving') && priorDifficulty && newAgainst.length >= 1) {
@@ -250,14 +291,14 @@ export function mergeReview(input: MergeInput): { report: LearningReport; patter
     } else if (difficultyTrack) {
       if (!newFor.length) { // "improving" without prior difficulty: what is left is a positive observation
         track = 'positive';
-        allFor = uniq([...(before?.track === 'positive' ? before.evidence : []), ...newAgainst]);
+        allFor = uniq([...(prev?.track === 'positive' ? prev.evidence : []), ...newAgainst]);
         status = allFor.length >= 2 && activities(allFor) >= 2 ? 'getting_stronger' : 'emerging';
       } else {
         status = difficultyStatus(allFor, allAgainst);
       }
     } else if (o.kind === 'recognition_to_production') {
       const produced = newFor.filter((r) => ['open_answer', 'writing_draft', 'justification', 'conversation_turns', 'speaking_transcript', 'personal_retrieval_answer', 'metacognition', 'listening_answer', 'outline'].includes(r.kind));
-      const recognised = newFor.some((r) => r.origin === 'record' || r.origin === 'check') || (before?.evidence || []).some((r) => r.origin === 'record' || r.origin === 'check')
+      const recognised = newFor.some((r) => r.origin === 'record' || r.origin === 'check') || (prev?.evidence || []).some((r) => r.origin === 'record' || r.origin === 'check')
         || input.hintPairs.some((h) => produced.some((p) => p.id === h.productionId));
       status = produced.length && recognised ? 'recognition_to_production' : 'emerging';
     } else {
@@ -280,12 +321,13 @@ export function mergeReview(input: MergeInput): { report: LearningReport; patter
       counterEvidence: allAgainst.slice(-MAX_REFS),
       activityCount: activities(uniq([...allFor, ...allAgainst])),
       sourceCount: sources(uniq([...allFor, ...allAgainst])),
-      firstSeen: before?.firstSeen || (dates.length ? dates.sort()[0] : now),
+      firstSeen: prev?.firstSeen || (dates.length ? dates.sort()[0] : now),
       lastSeen: dates.length ? dates.sort().slice(-1)[0] > now ? now : dates.sort().slice(-1)[0] : now,
       interpretation: clip(o.interpretation, 600),
       implication: clip(o.implication, 360),
       humanJudgment: currentJudgment,
-      history: [...(before?.history || []), { runId, at: now, status, humanJudgment: currentJudgment }].slice(-10),
+      hypothesisSince: prev ? (prev.hypothesisSince || prev.firstSeen) : now,
+      history: [...(before?.history || []), ...(reopen ? [{ runId: before!.history.slice(-1)[0]?.runId || runId, at: now, status: 'rejected_by_human' as Status, humanJudgment: 'disagree' as HumanJudgment }] : []), { runId, at: now, status, humanJudgment: currentJudgment }].slice(-10),
     };
     if (p.lastSeen < p.firstSeen) p.lastSeen = p.firstSeen;
     patterns.set(key, p);
@@ -309,6 +351,7 @@ export function mergeReview(input: MergeInput): { report: LearningReport; patter
     evidence: p.evidence,
     counterEvidence: p.counterEvidence,
     humanJudgment: p.humanJudgment,
+    hypothesisSince: p.hypothesisSince,
   });
 
   const shown = new Map<string, PatternState>();

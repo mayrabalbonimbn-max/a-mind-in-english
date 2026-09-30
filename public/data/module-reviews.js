@@ -1419,4 +1419,30 @@ window.KLANG.reviews = window.KLANG.reviews || {};
       ]
     }
   };
+
+  /* Reviews 3–7 were authored in a looser shape than Reviews 1–2. Bring them to the one contract the
+     book renders, keeping every authored word and id (nothing here writes new content, except a one-line
+     instruction for STEAL chunks that were given without a task):
+       · items without a type (R5–R7) take the type their fields describe;
+       · writing tasks are typed; the timed challenge gets the book's fixed 45 minutes (5 plan · 35 write · 5 check);
+       · the transfer reading gets its label; `teach` is the Teacher Lens (same {lead, points} shape). */
+  const typed = (x, unit) => {
+    if (!x || x.type) return x;
+    const u = x.unit || unit;
+    if (x.label && x.orig && x.target) return { id: x.id, type: 'produce', q: `<b>${x.label}.</b> ${x.task} <i>${x.orig}</i>`, model: [x.target], unit: u, area: x.label };
+    if (x.bad && x.good) return { id: x.id, type: 'produce', q: `<b>${x.title}.</b> ${x.task} <i>${x.bad}</i>`, model: [x.good], unit: u, area: x.title };
+    if (x.scenario) return { id: x.id, type: 'open', tag: x.tag, q: `${x.scenario}<br><br><b>${x.task}</b>`, guide: x.guide ? [x.guide] : null, rows: 6, unit: u, area: x.tag };
+    if (x.chunk) return { id: x.id, type: 'open', tag: x.tag, q: `Use <b>“${x.chunk}”</b> in a sentence of your own.`, guide: [x.meaning], rows: 2, unit: u, area: x.tag };
+    if (x.q) return { id: x.id, type: 'open', tag: x.tag, q: x.q, guide: x.guide ? [x.guide] : null, rows: 4, unit: u, area: x.tag };
+    return x;
+  };
+  ['3', '4', '5', '6', '7'].forEach((id) => {
+    const r = K.reviews[id];
+    if (!r) return;
+    ['retrieve', 'language', 'steal', 'reasoning', 'reading', 'editing'].forEach((st) => { if (r[st] && Array.isArray(r[st].items)) r[st].items = r[st].items.map((x) => typed(x)); });
+    if (r.synthesis) r.synthesis.type = r.synthesis.type || 'writing';
+    if (r.timed) Object.assign(r.timed, { type: r.timed.type || 'writing', minutes: r.timed.minutes || 45, timed: true });
+    if (r.reading && !r.reading.label) r.reading.label = 'Transfer reading';
+    if (r.teach && !r.teacherLens) r.teacherLens = r.teach;
+  });
 })(window.KLANG);

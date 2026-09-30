@@ -63,6 +63,8 @@ export const config = {
     timeoutMs: parseInt(process.env.AI_TIMEOUT_MS || '120000', 10),
     maxWritingChars: parseInt(process.env.AI_MAX_WRITING_CHARS || '15000', 10),
     feedbackPerHour: parseInt(process.env.AI_FEEDBACK_PER_HOUR || '12', 10),
+    // Main Write (strong model) has its own quota, separate from all other feedback: Draft 1 + Draft 2 + a retry fit
+    mainWritePerHour: parseInt(process.env.AI_MAIN_WRITE_PER_HOUR || '6', 10),
     explainPerHour: parseInt(process.env.AI_EXPLAIN_PER_HOUR || '60', 10),
     characterChatPerHour: parseInt(process.env.AI_CHARACTER_CHAT_PER_HOUR || '80', 10),
     conversationHelpPerHour: parseInt(process.env.AI_CONVERSATION_HELP_PER_HOUR || '30', 10),
@@ -83,3 +85,14 @@ export const config = {
     nightlyEnabled: process.env.LEARNING_REVIEW_NIGHTLY === 'true',
   },
 };
+
+/** Learning Review readiness as DEFINED / MISSING only: never a value, never the key. */
+export function learningReviewConfigStatus() {
+  const status = (v: string) => (v ? 'DEFINED' : 'MISSING');
+  return {
+    apiKey: status(config.ai.apiKey),
+    model: status(config.ai.models.nightlyLearningReview),
+    reasoning: config.ai.reasoning.nightlyLearningReview ? 'DEFINED' : 'MISSING (model default)',
+    nightly: config.learningReview.nightlyEnabled ? 'ON' : 'OFF',
+  };
+}

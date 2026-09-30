@@ -1,13 +1,27 @@
-/* A MIND IN ENGLISH · KLANG identity (manual v3.0)
-   Espresso chrome, creme pages, powder-pink accents. Jost / Figtree / Nothing You Could Do. */
+/* A MIND IN ENGLISH · MIND identity (pink editorial system)
+   Pink pages and chrome, espresso ink for text, titles, icons, lines and the occasional CTA.
+   Jost / Figtree / Nothing You Could Do. Semantic tokens first; the legacy names below map onto
+   them so every existing rule reads from the same palette. */
 :root{
-  color-scheme: dark;
-  --esp:#1C1817; --esp2:#262120; --esp3:#2F2927;
-  --creme:#F3EBE3; --creme2:#E9DFD4; --paper:#FBF7F2; --white:#FFFFFF;
-  --rosa:#E8BCC1; --rosa2:#F6DCDF; --ink:#9A4E5C;
-  --taupe:#B9ADA6; --cinza:#6E625C; --txt-d:#D6CCC4;
-  --line-d:rgba(243,235,227,.14); --line-l:#DCCFC2;
-  --ok:#4F6B4A; --ok-bg:#E4EADF;
+  color-scheme: light;
+  /* semantic */
+  --bg:#F5D5D7; --bg-subtle:#EDBBC1;
+  --surface:#FCF0F0; --surface-raised:#FFF9F9; --surface-sunken:#F1CACE; --surface-tint:#F8E2E3;
+  --text:#371B18; --text-soft:#4E2E2F; --text-muted:#6C4649;
+  --accent:#A34B59; --accent-text:#86343F; --accent-soft:#EFCACD; --accent-wash:#F9E4E6;
+  --border:#E4BEC2; --border-soft:#EDD1D3; --border-strong:#C98F97; --border-ink:rgba(55,27,24,.16);
+  --interactive:#3D1E1A; --interactive-hover:#2A1411; --interactive-text:#FBE9EA;
+  --success:#3F6A45; --success-bg:#E1ECDD; --warning:#8A4B12; --warning-bg:#F8E7D2; --error:#9A2F36; --error-bg:#F8D9DA;
+  --info:#355E7A; --info-bg:#E0EAF1; --neutral:#5D4A4B; --neutral-bg:#F1E3E3;
+  --shadow-sm:0 1px 2px rgba(55,27,24,.06),0 4px 14px rgba(55,27,24,.05);
+  --shadow-md:0 10px 30px rgba(55,27,24,.14);
+  /* legacy names, mapped onto the semantic palette */
+  --esp:#371B18; --esp2:#4A2824; --esp3:#2A1411;
+  --creme:var(--bg); --creme2:var(--accent-soft); --paper:var(--surface); --white:var(--surface-raised);
+  --rosa:var(--accent-soft); --rosa2:var(--accent-wash); --ink:var(--accent-text);
+  --taupe:var(--text-muted); --cinza:var(--text-muted); --txt-d:var(--text-soft);
+  --line-d:var(--border-ink); --line-l:var(--border); --line:var(--border);
+  --ok:var(--success); --ok-bg:var(--success-bg); --bg-warm:var(--surface);
   --display:'Jost',Futura,'Century Gothic',system-ui,sans-serif;
   --body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
   --script:'Nothing You Could Do','Segoe Script',cursive;
@@ -671,6 +685,23 @@ table.cmp td:first-child{font-weight:500}
 @media (min-width: 981px){
   #topbar-sync{display:none}
 }
+/* Phones: logo, Study Timer, sync status and menu share one row. Logo, timer and menu keep their
+   size (the menu must always be reachable); only the sync label wraps into a narrower column. */
+@media (max-width:640px){
+  .topbar{gap:6px}
+  .topbar>a{flex:none;display:flex}
+  .topbar svg.wm{width:72px}
+  .topbar-timer{margin-right:0;flex:none}
+  .topbar .timer-btn{padding:6px 9px;font-size:12px;gap:5px}
+  #topbar-sync{margin-right:0;min-width:0;flex:0 1 auto}
+  #topbar-sync .sync-badge{font-size:9.5px;letter-spacing:.04em;gap:5px;line-height:1.15}
+  #topbar-sync .sync-badge.st-conflict,#topbar-sync .sync-badge.st-demo{padding:3px 5px}
+  .topbar [data-act="menu"]{flex:none;padding:8px 12px;gap:6px}
+}
+/* Narrowest phones: the menu shows only its icon; the button keeps its accessible name ("Open navigation") */
+@media (max-width:360px){
+  .topbar [data-act="menu"]{font-size:0;gap:0;padding:11px 11px}
+}
 
 /* ── auth gate: nothing but the sign-in screen until a session exists ── */
 body.gated>:not(#gate){display:none !important}
@@ -930,6 +961,20 @@ details.wsup[open]>summary span,details.wsmore[open]>summary span{transform:rota
 .wsf li+li,.wss li+li{margin-top:2px}
 details.wsmore{margin-top:10px}
 .wsfoot{margin:12px 0 0;font-size:12.5px;color:var(--cinza)}
+/* Writing support level: the learner's choice per task (quiet text links, not a difficulty control) */
+.wsupw{position:relative;margin:2px 0 12px}
+.wsupw details.wsup{margin:0}
+.wslv{position:absolute;top:0;right:0;display:flex;align-items:center;min-height:32px;gap:0}
+.wslv-o{background:none;border:0;padding:6px 5px;min-height:32px;font-family:var(--display);font-size:11.5px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--cinza);cursor:pointer;border-radius:4px}
+.wslv-o:hover{color:var(--ink)}
+.wslv-o:focus-visible{outline:2px solid var(--rosa);outline-offset:1px}
+.wslv-o.on{color:var(--ink);text-decoration:underline;text-decoration-color:var(--rosa);text-decoration-thickness:2px;text-underline-offset:4px}
+.wslv-dot{color:var(--cinza);font-size:11px}
+.wsup-off{margin:0;min-height:32px;display:flex;align-items:center;font-family:var(--display);font-size:12px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--cinza);opacity:.75}
+@media (max-width:640px){
+  .wslv{position:static;flex-wrap:wrap;margin-bottom:2px}
+  .wslv-o{min-height:40px;padding:8px 7px}
+}
 .rgx .rg-k{font-family:var(--display);font-size:10.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--cinza);margin:16px 0 4px}
 .rgx .rg-orig{font-family:var(--display);font-size:19px;line-height:1.45;color:var(--esp);margin:0}
 .rgx .rg-mean{margin:6px 0 0;color:var(--cinza);font-size:14.5px}
@@ -1006,7 +1051,9 @@ details.wsmore{margin-top:10px}
 .side-timer-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .side-timer-meta{display:grid;gap:2px;min-width:0}
 .side-timer-label{font-family:var(--display);font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--taupe)}
-.side-timer-stat{font-family:var(--display);font-size:13px;color:var(--creme);font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side-timer-stat{font-family:var(--display);font-size:13px;color:var(--creme);font-variant-numeric:tabular-nums;font-weight:500}
+.side-timer-run{white-space:nowrap}
+.side-timer-widget .timer-toggle-btn{flex-shrink:0}
 .side-timer-widget .timer-toggle-btn{padding:5px 12px;font-size:12.5px;font-family:var(--body);font-weight:500;border-radius:999px;border:1px solid rgba(243,235,227,.25);background:none;color:var(--creme);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s ease;white-space:nowrap}
 .side-timer-widget .timer-toggle-btn:hover{border-color:var(--rosa);color:var(--rosa)}
 .side-timer-widget .timer-toggle-btn.on{background:rgba(232,188,193,.18);border-color:var(--rosa);color:var(--rosa)}
@@ -1016,6 +1063,16 @@ details.wsmore{margin-top:10px}
 .timer-btn.on{background:rgba(240,165,160,0.18);border-color:var(--rosa);color:#fff}
 .timer-icon{font-size:11px;opacity:0.85}
 .timer-clock{font-weight:500;letter-spacing:0.02em}
+.study-checkin{position:fixed;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);z-index:95;max-width:340px;box-sizing:border-box;background:var(--esp);color:var(--creme);border:1px solid var(--rosa);border-radius:14px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:14px;line-height:1.45}
+.study-checkin[hidden]{display:none}
+.study-checkin p{margin:0 0 10px}
+.study-checkin-acts{display:flex;gap:8px;flex-wrap:wrap}
+/* Longer timer notices wrap inside the viewport instead of stretching one line */
+.toast{width:max-content;max-width:calc(100vw - 32px);box-sizing:border-box;text-align:center}
+@media (max-width:640px){
+  .study-checkin{left:16px;right:16px;max-width:none}
+  .study-checkin-acts .btn{flex:1;justify-content:center}
+}
 
 /* ── Learning Review Human Judgments ──────────── */
 .lr-judge-box{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin:10px 0 8px;padding:8px 12px;background:var(--paper);border:1px solid var(--line-l);border-radius:8px}
@@ -1028,4 +1085,192 @@ details.wsmore{margin-top:10px}
 
 /* ── Feedback & Review Exports ───────────────── */
 .lr-head-acts,.fb-export-acts{display:flex;gap:8px;flex-wrap:wrap}
+/* Listening whose recording does not exist yet: questions shown as a preview only */
+fieldset.li-preview{border:0;margin:0;padding:0;min-width:0;opacity:.72}
+/* Long activity labels (e.g. a listening format) wrap inside the chip instead of leaving the screen */
+.tagp{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 
+/* ══ MIND · pink editorial system ═════════════════════════════════════════
+   The former espresso chrome (sidebar, topbar, cover, unit hero, feature panels) now sits on
+   pink. Inside those contexts the legacy "on-dark" tokens are re-pointed to espresso ink, so
+   the rules above keep their structure and simply read the new palette. Espresso survives
+   only as ink, fine lines, small marks and the primary call to action. */
+.side,.topbar,.cover,.uhero,section.dark,#gate,.noticeit,.wfocus,.tdefs div,.views .v:nth-child(2),.cal-steps div,.talk-cta,.study-checkin,.pop{
+  --esp2:rgba(255,249,249,.46); --esp3:rgba(255,249,249,.72);
+  --creme:var(--text); --txt-d:var(--text-soft); --taupe:var(--text-muted); --rosa:var(--accent-text);
+  --line-d:var(--border-ink);
+}
+body{background:var(--bg);color:var(--text)}
+.app,main{background:var(--bg)}
+:focus-visible{outline:2px solid var(--accent-text);outline-offset:3px}
+.page :focus-visible{outline-color:var(--accent-text)}
+::selection{background:var(--accent-soft);color:var(--text)}
+
+/* shell */
+.side{background:var(--bg-subtle);border-right:1px solid var(--border-ink);scrollbar-color:var(--border-strong) transparent}
+.side .brand svg{width:132px}
+.side .brand span{color:var(--text-muted)}
+.side .bar{background:rgba(55,27,24,.12)}
+.side .bar i{background:var(--esp)}
+.search input{background:var(--esp2);color:var(--text)}
+.search input::placeholder{color:var(--text-muted)}
+.search input:focus{border-color:var(--accent-text)}
+.search svg{stroke:var(--text-muted)}
+.mods li a.soon{color:var(--text-muted);opacity:.8}
+.mods li a.on{box-shadow:inset 2px 0 0 var(--esp)}
+.tools a svg{stroke:var(--accent-text)}
+.side-foot{color:var(--text-muted)}
+.side-account,.side-profile-widget,.side-timer-widget{background:var(--esp2);border-color:var(--border-ink)}
+.side-account .btn-login:hover{background:var(--accent-text);color:var(--surface-raised)}
+@media (max-width:980px){
+  .topbar{background:var(--bg-subtle);border-bottom:1px solid var(--border-ink)}
+  .topbar button{color:var(--text);border-color:var(--border-ink);min-height:40px}
+  body.nav-open .side{box-shadow:0 0 0 100vmax rgba(55,27,24,.38)}
+}
+
+/* buttons: one espresso primary, the rest quiet */
+.btn.rosa,.btn.dark{background:var(--interactive);color:var(--interactive-text);border-color:var(--interactive)}
+.btn.rosa:hover,.btn.dark:hover,.talk-cta .btn.dark:hover{background:var(--interactive-hover);color:var(--interactive-text)}
+.btn.creme{background:var(--surface-raised);color:var(--text);border-color:var(--border)}
+.btn.creme:hover{border-color:var(--accent-text);color:var(--accent-text)}
+.btn.out{border-color:var(--border-strong);color:var(--text)}
+.btn.out:hover{border-color:var(--accent-text);color:var(--accent-text)}
+.btn.line{color:var(--text);background:var(--surface-raised)}
+.btn.line:hover{border-color:var(--accent-text);color:var(--accent-text)}
+.btn.ghost{color:var(--accent-text)}
+.btn{min-height:40px}
+.btn.sm{min-height:36px}
+
+/* home cover */
+.cover{background:var(--bg)}
+.cover::before{background:radial-gradient(900px 520px at 78% 30%,rgba(255,249,249,.38),transparent 60%),radial-gradient(600px 400px at 8% 90%,rgba(163,75,89,.08),transparent 60%)}
+.cover h1{color:var(--text)}
+.cover h1 .in{color:var(--text-muted)}
+.cover h1 em,.uhero h1 em{color:var(--accent)}
+.cover .rtw{color:var(--text)}
+.cover .rtw b{color:var(--accent-text)}
+.cover-top svg{width:min(146px,34vw)}
+.arch{background:linear-gradient(180deg,#F7DDDE 0%,#E9B6BB 55%,#D59AA0 100%);border:1px solid var(--border-ink)}
+.arch .glow{background:radial-gradient(circle,rgba(255,249,249,.55),transparent 62%)}
+.arch .hand{color:var(--esp)}
+.arch .foot{color:var(--text)}
+.cycle{color:var(--text-muted)}
+.cycle span+span::before{color:var(--accent-text)}
+.sheet{background:var(--surface-tint);color:var(--text)}
+section.dark{background:var(--bg);color:var(--text);border-top:1px solid var(--border-ink)}
+section.dark .muted{color:var(--text-muted)}
+.cyc-grid{background:var(--border-ink);border-color:var(--border-ink)}
+.cyc-grid div{background:var(--bg)}
+.toolgrid a{background:var(--esp2);border-color:var(--border-ink)}
+.toolgrid a:hover{border-color:var(--accent-text)}
+.mark.done{background:var(--esp);color:var(--interactive-text)}
+.modcard,.home-prog{box-shadow:var(--shadow-sm)}
+
+/* unit hero + stepper */
+.uhero{background:var(--bg);border-bottom:1px solid var(--border-ink)}
+.uhero .pill{color:var(--text);border-color:var(--border-strong)}
+.uhero .qcard{border-color:var(--border-strong);background:rgba(255,249,249,.5)}
+.uhero .meta div{background:var(--esp2)}
+.stepper button{background:var(--surface-tint);border-color:var(--border-strong);color:var(--text-muted)}
+.stepper button:hover{border-color:var(--esp)}
+.stepper li.done button{border-color:var(--accent-text);color:var(--accent-text);background:var(--surface-raised)}
+.stepper li.done::before,.stepper li.on::before{background:var(--accent-text)}
+.stepper li.on button{background:var(--esp);border-color:var(--esp);color:var(--interactive-text)}
+.stepper li.on span{color:var(--text)}
+
+/* stage pages and notebooks read on a lighter pink */
+.page,.tpage{background:var(--surface-tint);color:var(--text)}
+.shead{border-bottom-color:var(--border-strong)}
+.modal{background:rgba(55,27,24,.42)}
+.modal .box{background:var(--surface);color:var(--text);box-shadow:var(--shadow-md)}
+.timeline div::before{background:var(--surface-tint)}
+.opt:has(input:checked){background:var(--accent-wash)}
+.edit-source{background:var(--accent-wash)}
+
+/* feature panels that used to be espresso are now tinted pink cards */
+.noticeit,.wfocus,.tdefs div,.cal-steps div,.talk-cta,.views .v:nth-child(2){background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.views .v:nth-child(2){border-color:var(--border)}
+.wfocus .pair .s{border-color:var(--border-strong)}
+.pop{background:var(--surface-raised);color:var(--text);border:1px solid var(--border);box-shadow:var(--shadow-md)}
+.study-checkin{background:var(--surface-raised);color:var(--text);border-color:var(--accent-text);box-shadow:var(--shadow-md)}
+.toast{background:var(--esp);color:var(--interactive-text);border-color:var(--esp)}
+.focusbar{box-shadow:var(--shadow-md)}
+.focusbar .x:hover{background:var(--accent-soft)}
+
+/* status colours from tokens */
+.tagp.good{background:var(--success-bg);color:var(--success)}
+.tagp.bad,.rv-cat-k.cat-error{background:var(--error-bg);border-color:var(--error-bg);color:var(--error)}
+.sync-badge.st-cloud{color:var(--success)}
+.sync-badge.st-cloud .dot{background:var(--success)}
+.sync-badge.st-offline .dot{background:#C98A3E}
+.sync-badge.st-error{color:var(--error)}
+.sync-badge.st-error .dot{background:var(--error)}
+.sync-badge.st-conflict{color:var(--error);background:var(--error-bg);border-color:rgba(154,47,54,.35)}
+.sync-badge.st-conflict .dot{background:var(--error)}
+.sync-badge.st-demo{background:rgba(255,249,249,.5);border-color:var(--border-strong)}
+.lr-jbtn.active{background:var(--esp);color:var(--interactive-text)}
+.lr-jbtn[data-lr-judge="disagree"].active{background:var(--error);border-color:var(--error);color:#fff}
+.lr-jbtn[data-lr-judge="agree"].active{background:var(--success);border-color:var(--success);color:#fff}
+
+/* Study Timer controls on pink */
+.side-timer-widget .timer-toggle-btn{border-color:var(--border-strong);color:var(--text);min-height:32px}
+.side-timer-widget .timer-toggle-btn.on{background:var(--esp);border-color:var(--esp);color:var(--interactive-text)}
+.timer-btn{background:rgba(255,249,249,.5);border-color:var(--border-ink);color:var(--text);min-height:32px}
+.timer-btn:hover{background:rgba(255,249,249,.8);border-color:var(--accent-text)}
+.timer-btn.on{background:var(--esp);border-color:var(--esp);color:var(--interactive-text)}
+
+/* auth gate */
+#gate{background:var(--bg)}
+.gate-form{background:var(--surface-raised);border-color:var(--border);box-shadow:var(--shadow-sm)}
+.gate-title{color:var(--accent-text)}
+.gate-msg{color:var(--error)}
+.arch .mtn{position:absolute;left:0;right:0;bottom:0;width:100%;height:44%;display:block}
+.arch .foot{color:var(--interactive-text);z-index:1}
+
+/* Sidebar as the book's table of contents: modules first, notebook second; account, cloud status,
+   Study Timer and progress are one compact strip docked at the foot of the sidebar, always in view. */
+.side{padding-bottom:0}
+.side-foot{margin-top:auto}
+.side-desk{position:sticky;bottom:0;z-index:2;margin:0 -22px;padding:12px 22px calc(env(safe-area-inset-bottom,0px) + 14px);background:var(--bg-subtle);border-top:1px solid var(--border-ink);display:grid;gap:9px}
+.side-desk .side-account,.side-desk .side-timer-widget{background:none;border:0;border-radius:0;padding:0}
+.side-desk .side-account{grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4px 10px}
+.side-desk .side-account .user-info{display:contents}
+.side-desk .side-account .u-name{font-size:12.5px;max-width:none;grid-column:1}
+.side-desk .side-account .btn-logout{grid-column:2;grid-row:1;justify-self:end}
+.side-desk .side-account [data-sync-status]{grid-column:1 / -1}
+.side-desk .side-timer-widget{padding-top:9px;border-top:1px solid var(--border-ink)}
+.side-desk .prog{gap:6px}
+.tools a .ct{font-size:10px;letter-spacing:.12em;text-transform:uppercase;text-align:right;line-height:1.25;max-width:9em}
+@media (max-width:980px){.side{padding-bottom:0}.side-desk{margin:0 -20px;padding-left:20px;padding-right:20px}}
+
+/* Learning Review: an editorial report in numbered groups; details open on demand */
+.lr-report{max-width:860px}
+.lr-group{margin-top:44px;padding-top:16px;border-top:1px solid var(--border-strong)}
+.lr-gh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.lr-gh h3{font-family:var(--display);font-weight:500;font-size:clamp(22px,2.6vw,28px);letter-spacing:0;text-transform:none;color:var(--text);flex:1;min-width:0}
+.lr-n{font-family:var(--display);font-size:12px;font-weight:500;letter-spacing:.18em;color:var(--accent-text);font-variant-numeric:tabular-nums}
+.lr-gsub{font-family:var(--display);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--text-muted);margin:6px 0 10px}
+.lr-sub{margin-top:18px}
+.lr-subh{font-family:var(--display);font-size:11.5px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--accent-text);margin:0 0 2px}
+.lr-glance{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:12px}
+.lr-stat{background:var(--surface-raised);padding:14px 16px;display:grid;gap:2px}
+.lr-stat b{font-family:var(--display);font-weight:400;font-size:30px;line-height:1;color:var(--text);font-variant-numeric:tabular-nums}
+.lr-stat span{font-size:12.5px;color:var(--text-muted);line-height:1.35}
+.lr-glance-line{margin-top:12px;font-size:14px}
+.lr-evlist{columns:2;column-gap:24px;margin:10px 0 0;padding-left:18px;font-size:14px;line-height:1.7}
+.lr-evlist li{break-inside:avoid}
+.lr-tag.fact{background:var(--surface-raised);color:var(--text);box-shadow:inset 0 0 0 1px var(--text)}
+.lr-tag.ai{background:var(--accent-soft);color:var(--accent-text)}
+.lr-tag.judge{background:var(--esp);color:var(--interactive-text)}
+.lr-tag.prop{background:transparent;color:var(--accent-text);box-shadow:inset 0 0 0 1px var(--accent-text);border:0;outline:1px dashed transparent}
+.lr-ai{border-left-color:var(--accent);background:var(--accent-wash);padding:10px 14px;border-radius:0 10px 10px 0}
+.lr-head{border-bottom-color:var(--border-strong)}
+.lr-more summary{min-height:32px;display:inline-flex;align-items:center}
+@media (max-width:720px){
+  .lr-glance{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lr-glance .lr-stat:first-child{grid-column:1 / -1}
+  .lr-evlist{columns:1}
+}
+.draft-label{font-family:var(--display);font-size:11.5px;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--text)}
+.draft-label.draft2{display:block;color:var(--accent-text);margin:0 0 10px;padding-top:14px;border-top:1px solid var(--border-strong)}
+.lr-head{border-bottom:0}

@@ -79,7 +79,10 @@
     steps: ['Write your main point in plain English.', 'List 2–3 ideas you want to develop.', 'Give each paragraph one job.', 'Decide what evidence or example belongs in each.', 'Then write the opening.'],
   };
 
-  // Support fades across the book; it never disappears ("need more support?" stays available).
+  // Default intensity: fades across the book; "need more support?" stays available at every level.
+  // It is only a default: the learner may choose another level for any activity (LEVELS), and a
+  // level says how much scaffolding is wanted for that task, never how well the learner writes.
+  const LEVELS = ['high', 'medium', 'light', 'off'];
   function levelFor(unitId) {
     const u = String(unitId || '');
     if (u === '01' || u === '02') return 'high';
@@ -112,10 +115,11 @@
     return null;   // retrieve, notice, steal, language, editing…: protected or form-focused
   }
 
-  function supportFor(unitId, stage, item) {
+  /** The support for an activity at the learner's chosen level (or the unit default). 'off' → null. */
+  function supportFor(unitId, stage, item, chosen) {
     const id = profileFor(stage, item);
-    if (!id) return null;
-    const p = PROFILES[id], level = levelFor(unitId), show = SHOWN[level];
+    if (!id || chosen === 'off') return null;
+    const p = PROFILES[id], level = SHOWN[chosen] ? chosen : levelFor(unitId), show = SHOWN[level];
     const isWriting = item.type === 'writing';
     const label = `${p.register} · ${p.purpose}`.toUpperCase();
     const more = {
@@ -123,7 +127,6 @@
       steps: show.steps ? [] : p.steps,
       frames: p.frames.slice(show.frames),
       plan: isWriting && !show.plan ? PLAN : null,
-      note: show.steps ? '' : p.note,
     };
     return {
       profile: id, level, label, register: p.register, purpose: p.purpose,
@@ -131,11 +134,11 @@
       frames: p.frames.slice(0, show.frames),
       steps: show.steps ? p.steps : [],
       summary: show.steps ? '' : p.summary,
-      note: show.steps ? p.note : '',
+      note: p.note,
       plan: isWriting && show.plan ? PLAN : null,
-      more: (more.why || more.steps.length || more.frames.length || more.plan) ? more : null,
+      more: (more.why || more.steps.length || more.frames.length || more.plan) ? Object.assign(more, { note: '' }) : null,
     };
   }
 
-  return { REGISTERS, PROFILES, PLAN, levelFor, profileFor, supportFor };
+  return { REGISTERS, PROFILES, PLAN, LEVELS, levelFor, profileFor, supportFor };
 });

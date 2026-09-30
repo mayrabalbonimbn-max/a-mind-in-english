@@ -38,9 +38,9 @@
     return `<div class="lr-judge-box" data-pattern-key="${esc(key)}">
       <span class="lr-judge-lbl">Your evaluation:</span>
       <div class="lr-judge-btns">
-        <button type="button" class="btn line xs lr-jbtn ${current === 'agree' ? 'active' : ''}" data-lr-judge="agree" data-lr-key="${esc(key)}">Agree</button>
-        <button type="button" class="btn line xs lr-jbtn ${current === 'disagree' ? 'active' : ''}" data-lr-judge="disagree" data-lr-key="${esc(key)}">Disagree</button>
-        <button type="button" class="btn line xs lr-jbtn ${current === 'not_sure' ? 'active' : ''}" data-lr-judge="not_sure" data-lr-key="${esc(key)}">Not sure</button>
+        <button type="button" class="btn line xs lr-jbtn ${current === 'agree' ? 'active' : ''}" data-lr-judge="agree" data-lr-key="${esc(key)}" aria-pressed="${current === 'agree'}">Agree</button>
+        <button type="button" class="btn line xs lr-jbtn ${current === 'disagree' ? 'active' : ''}" data-lr-judge="disagree" data-lr-key="${esc(key)}" aria-pressed="${current === 'disagree'}">Disagree</button>
+        <button type="button" class="btn line xs lr-jbtn ${current === 'not_sure' ? 'active' : ''}" data-lr-judge="not_sure" data-lr-key="${esc(key)}" aria-pressed="${current === 'not_sure'}">Not sure</button>
       </div>
     </div>`;
   }
@@ -81,21 +81,35 @@
   function reportHtml(r) {
     const e = r.evidence, s = r.sections;
     const period = r.period.from ? `Evidence from ${day(r.period.from)} to ${day(r.period.to)}` : `All evidence up to ${day(r.period.to)} · first review`;
+    // Same persisted report, grouped as the book reads it: each group is shown only when it has content
+    let n = 0;
+    const group = (title, note, parts, tag = '') => {
+      const inner = parts.filter(Boolean).join('');
+      if (!inner) return '';
+      return `<section class="lr-sec lr-group"><div class="lr-gh"><span class="lr-n">${String(++n).padStart(2, '0')}</span><h3>${esc(title)}</h3>${tag}</div>${note ? `<p class="lr-gsub">${esc(note)}</p>` : ''}${inner}</section>`;
+    };
+    const sub = (title, items, render) => (items && items.length ? `<div class="lr-sub"><h4 class="lr-subh">${esc(title)}</h4>${items.map(render).join('')}</div>` : '');
+    const count = (k, label) => `<div class="lr-stat"><b>${k}</b><span>${esc(label)}</span></div>`;
+    const patterns = (s.emerging.length + s.recurring.length + s.recognitionToProduction.length);
+    const working = s.gettingStronger.length + s.improving.length;
+    const glance = `<div class="lr-glance">${count(e.total, e.total === 1 ? 'new item' : 'new items')}${count(e.byOrigin.learner, 'of your own work')}${count(e.byOrigin.check, 'checked')}${count(e.byOrigin.record, e.byOrigin.record === 1 ? 'record' : 'records')}${count(e.byOrigin.ai, 'earlier feedback')}</div>
+      <p class="lr-glance-line muted">${plural(working, 'thing', 'things')} working · ${plural(patterns, 'pattern')} to watch · ${plural(r.nextSession.length, 'step')} for next session · ${plural(r.proposals.length, 'proposal')}${e.deferred ? ` · ${e.deferred} more items next time` : ''}</p>`;
     const body = [
-      r.workedOn.length ? `<section class="lr-sec"><h3>What you worked on</h3><div class="lr-tag fact">Fact</div>${r.workedOn.map(w => `<p class="lr-worked"><b>${esc(w.area)}</b> · ${esc(w.facts)}<br><span class="muted">${esc(w.activities.join(', '))}</span></p>`).join('')}</section>` : '',
-      section('Getting stronger', s.gettingStronger, observation),
-      section('Emerging', s.emerging, observation),
-      section('Recurring patterns', s.recurring, observation),
-      section('Improving', s.improving, observation),
-      section('Recognition → production', s.recognitionToProduction, observation),
-      section('Not enough evidence yet', s.notEnoughEvidence, n => `<article class="lr-obs"><h4>${esc(n.label)}</h4><p class="muted">${esc(n.note)}</p>${n.evidence.length ? `<details class="lr-more"><summary>see the evidence (${n.evidence.length}) <span aria-hidden="true">→</span></summary>${evidenceList(n.evidence)}</details>` : ''}</article>`),
-      section('Next session', r.nextSession, (n, i) => `<article class="lr-next"><div class="lr-tag ai">AI suggestion</div><h4>${esc(n.action)}</h4><p class="muted">${esc(n.why)}</p>${n.evidence.length ? `<details class="lr-more"><summary>see the evidence (${n.evidence.length}) <span aria-hidden="true">→</span></summary>${evidenceList(n.evidence)}</details>` : ''}</article>`),
-      `<section class="lr-sec"><h3>Proposed adaptations</h3>${r.proposals.length ? '<p class="muted">For the next unit you have not started. Nothing has been changed: a person decides whether to adapt anything.</p>' + r.proposals.map(proposal).join('') : '<p class="muted">None. The evidence in this period does not justify changing the next unit.</p>'}</section>`,
-      (r.warnings.length || r.uncertainties.length) ? `<section class="lr-sec"><h3>Warnings and uncertainties</h3><ul class="lr-warn">${r.warnings.map(w => `<li><span class="lr-tag fact">Fact</span> ${esc(w)}</li>`).join('')}${r.uncertainties.map(u => `<li><span class="lr-tag ai">AI</span> ${esc(u)}</li>`).join('')}</ul></section>` : '',
+      group('At a glance', period, [glance], '<span class="lr-tag fact">Fact</span>'),
+      group("What's working", '', [sub('Getting stronger', s.gettingStronger, observation), sub('Improving', s.improving, observation)]),
+      group('Patterns', '', [sub('Emerging', s.emerging, observation), sub('Recurring patterns', s.recurring, observation), sub('Recognition → production', s.recognitionToProduction, observation)]),
+      group('Since last review', 'What you worked on', [r.workedOn.map(w => `<p class="lr-worked"><b>${esc(w.area)}</b> · ${esc(w.facts)}<br><span class="muted">${esc(w.activities.join(', '))}</span></p>`).join('')], '<span class="lr-tag fact">Fact</span>'),
+      group('Next session', '', [r.nextSession.map(x => `<article class="lr-next"><div class="lr-tag ai">AI suggestion</div><h4>${esc(x.action)}</h4><p class="muted">${esc(x.why)}</p>${x.evidence.length ? `<details class="lr-more"><summary>see the evidence (${x.evidence.length}) <span aria-hidden="true">→</span></summary>${evidenceList(x.evidence)}</details>` : ''}</article>`).join('')]),
+      group('Proposals', 'Proposed adaptations · never applied', [r.proposals.length ? '<p class="muted">For the next unit you have not started. Nothing has been changed: a person decides whether to adapt anything.</p>' + r.proposals.map(proposal).join('') : '<p class="muted">None. The evidence in this period does not justify changing the next unit.</p>']),
+      group('Uncertainties', 'Warnings and uncertainties', [
+        (r.warnings.length || r.uncertainties.length) ? `<ul class="lr-warn">${r.warnings.map(w => `<li><span class="lr-tag fact">Fact</span> ${esc(w)}</li>`).join('')}${r.uncertainties.map(u => `<li><span class="lr-tag ai">AI</span> ${esc(u)}</li>`).join('')}</ul>` : '',
+        sub('Not enough evidence yet', s.notEnoughEvidence, x => `<article class="lr-obs"><h4>${esc(x.label)}</h4><p class="muted">${esc(x.note)}</p>${x.evidence.length ? `<details class="lr-more"><summary>see the evidence (${x.evidence.length}) <span aria-hidden="true">→</span></summary>${evidenceList(x.evidence)}</details>` : ''}</article>`),
+      ]),
+      group('Evidence', 'Evidence considered', [e.activities && e.activities.length ? `<details class="lr-more"><summary>${plural(e.activities.length, 'activity', 'activities')} <span aria-hidden="true">→</span></summary><ul class="lr-evlist">${e.activities.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''], '<span class="lr-tag fact">Fact</span>'),
     ].join('');
     return `<div class="lr-report" id="lr-report">
       <header class="lr-head"><div class="kl">Learning review</div><h2>${esc(day(r.generatedAt))}</h2><p class="muted">${esc(period)} · ${plural(e.total, 'new item')} (${e.byOrigin.learner} of your own work, ${e.byOrigin.check} checked, ${e.byOrigin.record} records, ${e.byOrigin.ai} earlier AI feedback)${e.deferred ? ` · ${e.deferred} more next time` : ''}</p>
-        <p class="lr-legend"><span class="lr-tag fact">Fact</span> what you did or a check recorded <span class="lr-tag ai">AI interpretation</span> what the model reads in it <span class="lr-tag prop">Proposal</span> a suggestion, never applied</p>
+        <p class="lr-legend"><span class="lr-tag fact">Fact</span> what you did or a check recorded <span class="lr-tag ai">AI interpretation</span> what the model reads in it <span class="lr-tag judge">Your judgment</span> your agree / disagree / not sure <span class="lr-tag prop">Proposal</span> a suggestion, never applied</p>
         <div class="lr-head-acts" style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
           <a class="btn line sm" data-lr="pdf" href="/api/learning-review/runs/${esc(r.runId)}/export?format=pdf" download>export PDF →</a>
           <a class="btn line sm" data-lr="md" href="/api/learning-review/runs/${esc(r.runId)}/export?format=md" download>export Markdown →</a>
@@ -106,13 +120,18 @@
   function controlsHtml() {
     const d = DATA || {};
     if (d.isDemo) return `<div class="lr-box"><p>The Learning Review is not available in Demo Mode.</p></div>`;
+    // A failed request is not "not configured": say what actually happened
+    if (d.loadError) return `<div class="lr-box"><p>${d.status === 0 ? 'You seem to be offline, so the Learning Review could not be loaded.' : 'The Learning Review could not be loaded right now.'} Your work is safe; nothing was analysed.</p><div class="lr-acts"><button class="btn line sm" data-lr="reload">try again</button></div></div>`;
     if (d.available === false) return `<div class="lr-box"><p>The Learning Review is not configured on this server yet. Your work is safe; nothing is analysed.</p></div>`;
     const pending = d.pending || 0;
     const studyMins = d.studyMinutes !== undefined ? d.studyMinutes : 0;
+    const nightly = d.nightlyEnabled
+      ? (d.report ? 'A review also runs by itself at night once there are 60 minutes of study since the last one and something new to read.' : 'After your first review, one can also run by itself at night once there are 60 minutes of study since the last one and something new to read.')
+      : 'Reviews run only when you ask for one.';
     const failed = d.lastRun && d.lastRun.status === 'failed' && (!d.report || d.lastRun.startedAt > d.report.generatedAt);
     return `<div class="lr-box">
       <p class="lr-uses"><b>Uses AI</b> · one request, and only when there is new evidence since your last review. <b>Nothing is changed</b>: no unit, answer, Glossary or Error Log entry, progress or profile.</p>
-      <p class="lr-study-info" style="font-size:14px;margin:8px 0;color:var(--ink-light)">Active study accumulated since last review: <b>${studyMins} min</b>. <span class="muted">(Nightly automated review eligibility threshold: 60 min).</span></p>
+      <p class="lr-study-info" style="font-size:14px;margin:8px 0;color:var(--ink-light)">Study timer since your last review: <b>${studyMins} min</b>. <span class="muted">${esc(nightly)}</span></p>
       <p class="lr-pending" id="lr-pending">${RUNNING ? '' : pending ? `${plural(pending, 'new item')} since your last review.` : 'Nothing new since your last review.'}</p>
       <div class="lr-acts"><button class="btn dark" data-lr="run" ${RUNNING ? 'disabled aria-busy="true"' : ''}>${RUNNING ? 'reviewing…' : 'run review now →'}</button></div>
       <p class="lr-status" role="status" aria-live="polite">${RUNNING ? 'Reading your new evidence. This can take up to a minute; you can keep studying in another tab.' : NOTICE ? esc(NOTICE.text) : failed ? `The last attempt (${esc(day(d.lastRun.startedAt))}) could not be completed. The review below is unchanged.` : ''}</p>
@@ -128,39 +147,32 @@
     if (r) r.innerHTML = DATA && DATA.report ? reportHtml(DATA.report) : (DATA ? '<p class="muted lr-empty">No review yet. When you have studied, run your first review above.</p>' : '<p class="muted">Loading…</p>');
   }
 
+  // Agree / Disagree / Not sure, saved on the server; choosing the active one again clears it.
+  // The page shows only what the server confirmed, so it can never differ from what was stored.
   async function setJudgment(patternKey, judgment) {
     if (!patternKey || !judgment) return;
     if (D && D.isDemo && D.isDemo()) { return; }
-    // Update local DATA in-place
-    if (DATA && DATA.report && DATA.report.sections) {
-      const s = DATA.report.sections;
-      const allObs = [
-        ...(s.gettingStronger || []),
-        ...(s.emerging || []),
-        ...(s.recurring || []),
-        ...(s.improving || []),
-        ...(s.recognitionToProduction || []),
-      ];
-      const target = allObs.find(o => (o.key || o.label) === patternKey);
-      if (target) {
-        target.humanJudgment = target.humanJudgment === judgment ? null : judgment;
-      }
+    const s = DATA && DATA.report && DATA.report.sections;
+    const all = s ? [...(s.gettingStronger || []), ...(s.emerging || []), ...(s.recurring || []), ...(s.improving || []), ...(s.recognitionToProduction || [])] : [];
+    const targets = all.filter(o => (o.key || o.label) === patternKey);
+    const before = targets.length ? targets[0].humanJudgment || null : null;
+    const next = before === judgment ? null : judgment;
+    targets.forEach(o => { o.humanJudgment = next; });
+    paint();
+    const r = await api('/api/learning-review/judgments', { method: 'POST', body: JSON.stringify({ patternKey, judgment: next }) });
+    if (!r.ok) {
+      targets.forEach(o => { o.humanJudgment = before; });
+      NOTICE = { kind: 'error', text: 'Your evaluation could not be saved. Nothing was changed; try again.' };
+    } else {
+      targets.forEach(o => { o.humanJudgment = r.data.judgment || null; });
     }
     paint();
-    try {
-      await api('/api/learning-review/judgments', {
-        method: 'POST',
-        body: JSON.stringify({ patternKey, judgment }),
-      });
-    } catch (err) {
-      console.warn('Failed to post judgment', err);
-    }
   }
 
   async function load() {
     const r = await api('/api/learning-review');
     if (r.status === 401) { D.needSignIn && D.needSignIn(); return; }
-    DATA = r.ok ? r.data : { available: false };
+    DATA = r.ok ? r.data : { loadError: true, status: r.status };
     paint();
   }
 
@@ -199,6 +211,8 @@
       run();
       return true;
     }
+    const tReload = e.target.closest && e.target.closest('[data-lr="reload"]');
+    if (tReload) { e.preventDefault(); DATA = null; paint(); load(); return true; }
     const tJudge = e.target.closest && e.target.closest('[data-lr-judge]');
     if (tJudge) {
       e.preventDefault();
@@ -215,5 +229,6 @@
     render,
     onClick,
     _state: () => ({ RUNNING, NOTICE, DATA }),
+    _html: () => ({ controls: controlsHtml(), report: DATA && DATA.report ? reportHtml(DATA.report) : '' }),   // tests only
   };
 })();

@@ -6,7 +6,7 @@
   'use strict';
 
   const BOOK = (document.currentScript.dataset.book || '').split(/\s+/).filter(Boolean);
-  const WM = 'M4 4V96M4 60L58 4M24 40L62 96M84 4V92H130M146 96L190 8L234 96M254 96V4L316 96V4M425.7 23.6A46 46 0 1 0 434 50H394';
+  const WM = 'M4 96V4L44 70L84 4V96M112 4V96M140 96V4L202 96V4M230 4H262A46 46 0 0 1 262 96H230Z';
   const MSG_KEY = 'klang.gate.msg';
   let bookLoading = null;
   let leaving = false;
@@ -82,7 +82,7 @@
     g.hidden = false;
     g.innerHTML = `
       <main class="gate-card" aria-labelledby="gate-title">
-        <svg class="gate-wm" viewBox="-2 -6 446 108" role="img" aria-label="KLANG"><path d="${WM}" fill="none" stroke="#F3EBE3" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/></svg>
+        <svg class="gate-wm" viewBox="-6 -6 320 108" role="img" aria-label="MIND"><path d="${WM}" fill="none" stroke="#371B18" stroke-width="8" stroke-linejoin="miter" stroke-miterlimit="10"/></svg>
         <h1 id="gate-title" class="gate-title">A Mind in English</h1>
         <form id="gate-form" class="gate-form" novalidate>
           <label>Email<input class="ti" name="email" type="email" autocomplete="username" autocapitalize="off" spellcheck="false" required></label>

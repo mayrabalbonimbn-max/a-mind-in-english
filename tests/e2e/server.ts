@@ -15,6 +15,8 @@ let replies = 0;
 
 config.ai.apiKey = 'e2e-fake-not-real';
 config.ai.models = allModels('e2e-fake');
+// E2E_LR=off: the same server with the Learning Review model unset (the "not configured" state)
+if (process.env.E2E_LR === 'off') config.ai.models.nightlyLearningReview = '';
 // Transcription is faked too: with a (fake) key set, an unstubbed call would try to reach the real provider
 __setTranscriptionCallForTests(async () => ({ text: 'E2E fake transcript.', uncertain: [] }));
 __setStructuredCallForTests((async (p: any) => {
@@ -37,6 +39,27 @@ __setStructuredCallForTests((async (p: any) => {
       registers: { casual: v("It's gone quiet, but it's still there.", 'chatting with a friend'), neutral: v('It has gone quiet, but it is still there.', 'most everyday situations'), professional: v('It is less active at the moment, but it has not disappeared.', 'a work update'), formal: v('It has become less active; it has not, however, disappeared.', 'an official letter'), academic: v('This knowledge appears dormant rather than lost.', 'an essay or report') },
       changes: [{ feature: 'Contractions', explanation: '"It\'s gone" is relaxed; the neutral version spells it out.' }, { feature: 'Framing', explanation: 'The academic version names the claim ("dormant rather than lost") instead of the speaker\'s experience.' }, { feature: 'Hedging', explanation: '"appears" calibrates certainty.' }],
       interchangeabilityNote: 'The academic sentence would sound distant in a chat, and the casual one too loose in an essay.',
+    };
+  }
+  if (p.name === 'main_write_feedback' || p.name === 'writing_feedback') {
+    const sec = (summary: string) => ({ summary, strengths: [], improvements: [] });
+    return {
+      estimatedLevel: { level: 'B2+', rationale: 'E2E fake estimate.' },
+      taskAchievement: sec('E2E fake: the text answers the prompt.'), argumentDevelopment: sec('s'), organisationCoherence: sec('s'), clarity: sec('s'),
+      grammaticalAccuracyRange: sec('s'), lexicalPrecisionRange: sec('s'), registerTone: sec('s'), hedgingStance: sec('s'), cohesionPragmatics: sec('s'), unnecessaryRepetition: sec('s'),
+      argumentationReasoning: sec('s'), organisation: sec('s'), cohesion: sec('s'), grammarAccuracy: sec('s'), vocabularyCollocations: sec('s'), lexicalPrecision: sec('s'), register: sec('s'), naturalness: sec('s'),
+      strengthsSummary: ['E2E fake strength one', 'E2E fake strength two'],
+      observations: [{ quote: 'first week', type: 'STRONG_LANGUAGE', explanation: 'Concrete.', effect: 'Engages the reader.', revisionStrategy: 'Keep it.' }],
+      questionsForWriter: ['E2E fake question?'], recurringErrors: [], isolatedErrors: [], corrections: [], suggestedErrorLog: [], nextDraftPriorities: ['E2E fake priority'],
+    };
+  }
+  if (p.name === 'learning_review') {
+    // Learner text containing FAIL-REVIEW makes the fake provider fail, to show the failure state
+    if (/FAIL-REVIEW/.test(p.user)) throw new AiRequestError('The AI provider returned an error', 'upstream');
+    const first = /\bE1 \|/.test(p.user) ? 'E1' : null;
+    return {
+      observations: first ? [{ kind: 'strength', patternKey: 'e2e_qualified_claims', label: 'Qualified claims (E2E fake)', priorPattern: null, evidenceFor: [first], evidenceAgainst: [], interpretation: 'E2E fake interpretation: the answer qualifies its claim.', claimedConfidence: 'low', implication: '' }] : [],
+      notEnoughEvidence: [], nextSession: [], proposals: [], uncertainties: ['E2E fake review: very little evidence so far.'],
     };
   }
   if (p.name === 'conversation_help') {

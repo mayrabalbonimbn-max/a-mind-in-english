@@ -203,19 +203,26 @@ describe('Learning Review · guards', () => {
     expect(report.sections.recurring).toHaveLength(0);
   });
 
-  it('human rejection (disagree) marks pattern as rejected_by_human and suppresses proposals', () => {
+  it('human rejection (disagree) without new supporting evidence stays rejected_by_human and suppresses proposals', () => {
     const next = nextUnstudiedUnit([{ key: 'unit:01', revision: 1, updatedAt: new Date(), data: unit01({ [`01:${OPEN[0]}`]: 'x' }) }])!;
     const target = next.candidates.find((a) => a.stage === 'interpret')!;
-    const batch = [item(1, OPEN[0]), item(2, OPEN[1]), item(3, OPEN[2])];
+    const batch = [item(1, OPEN[0]), item(2, OPEN[1])];
     const prop = (activityId: string) => ({ activityId, action: 'adapt', patternKeys: ['hedging_strong_claims'], proposedChange: 'Require hedged claims.', rationale: 'Rationale.', workloadImpact: 'same', risks: 'r', extraConstraints: [] });
-    const humanJudgments = { hedging_strong_claims: 'disagree' as const };
+    const first = mergeReview({
+      runId: 'run-1', now: '2026-09-29T20:00:00.000Z', trigger: 'manual', period: { from: null, to: '2026-09-29T20:00:00.000Z' },
+      batch: [item(3, OPEN[2]), item(4, OPEN[3] || OPEN[0]), item(5, THINK_OPEN[0])], deferred: 0, refs: new Map([item(3, OPEN[2]), item(4, OPEN[3] || OPEN[0]), item(5, THINK_OPEN[0])].map((e, i) => [e.id, `E${i + 1}`])), prior: [],
+      output: out({ observations: [obs({ evidenceFor: ['E1', 'E2', 'E3'] })] }), nextUnit: null, hintPairs: [], model: { name: 'fake', reasoning: 'none', promptVersion: 'v' },
+    });
+    const humanJudgments = { hedging_strong_claims: { judgment: 'disagree' as const, at: '2026-09-30T08:00:00.000Z' } };
     const res = mergeReview({
-      runId: 'run-test', now: '2026-09-30T20:00:00.000Z', trigger: 'manual', period: { from: null, to: '2026-09-30T20:00:00.000Z' },
-      batch, deferred: 0, refs: new Map(batch.map((e, i) => [e.id, `E${i + 1}`])), prior: [],
-      output: out({ observations: [obs({ evidenceFor: ['E1', 'E2', 'E3'] })], proposals: [prop(target.id)] }),
+      runId: 'run-2', now: '2026-09-30T20:00:00.000Z', trigger: 'manual', period: { from: '2026-09-29T20:00:00.000Z', to: '2026-09-30T20:00:00.000Z' },
+      batch, deferred: 0, refs: new Map(batch.map((e, i) => [e.id, `E${i + 1}`])), prior: first.patterns,
+      output: out({ observations: [obs({ kind: 'difficulty', evidenceFor: [], evidenceAgainst: ['E1', 'E2'] })], proposals: [prop(target.id)] }),
       nextUnit: next, hintPairs: [], humanJudgments, model: { name: 'fake', reasoning: 'none', promptVersion: 'v' },
     });
-    expect(res.patterns[0].status).toBe('rejected_by_human');
+    const p = res.patterns.find((x) => x.key === 'hedging_strong_claims')!;
+    expect(p.status).toBe('rejected_by_human');
+    expect(p.humanJudgment).toBe('disagree');
     expect(res.report.proposals).toHaveLength(0);
   });
 
@@ -259,7 +266,7 @@ describe('Learning Review · pipeline', () => {
     expect(run.evidenceIds).toEqual([`ans:01:${OPEN[1]}`]);
     expect(run.fromRunId).toBe((r1 as any).runId);
     expect((run.docRevisions as any)['unit:01']).toBe(2);
-    expect(run).toMatchObject({ model: 'fake-model', promptVersion: 'learning-review-v1', status: 'succeeded' });
+    expect(run).toMatchObject({ model: 'fake-model', promptVersion: 'learning-review-v2', status: 'succeeded' });
   });
 
   it('button and scheduler at the same time → one analysis', async () => {
@@ -459,7 +466,7 @@ describe('Learning Review · API', () => {
     const doc = await prisma.userDocument.findUnique({
       where: { userId_key: { userId: u.id, key: 'learning-judgments' } },
     });
-    expect((doc?.data as any)?.judgments?.hedging_strong_claims).toBe('agree');
+    expect((doc?.data as any)?.judgments?.hedging_strong_claims).toMatchObject({ judgment: 'agree', at: expect.any(String) });
   });
 
   it('nightly: off unless enabled; only for learners whose first review was manual; nothing new → no AI', async () => {

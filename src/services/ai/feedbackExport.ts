@@ -14,17 +14,35 @@ export interface ExportFeedbackData {
   taskTitle: string;
   taskObjective: string;
   taskPrompt: string;
-  learnerText: string;
+  /** The exact text that was analysed; null when this (older) analysis did not record it. */
+  learnerText: string | null;
+  /** true only when learnerText is the persisted snapshot of what was sent to the model */
+  snapshot: boolean;
   words: number;
   draft: 'first' | 'revised';
-  supportUsed: boolean;
+  // Recorded at submission; null = not known (never guessed for older analyses)
+  supportUsed: boolean | null;
+  supportLevel?: string | null;
+  supportOpenedBeforeWriting?: boolean | null;
   createdAt: string;
-  model: string;
-  promptVersion: string;
+  // As recorded for this analysis; null = not recorded (never today's configuration)
+  model: string | null;
+  promptVersion: string | null;
+  expectedRegister?: string | null;
   feedback: MainWriteFeedback | WritingFeedback | any;
   revisionExists?: boolean;
   revisionDate?: string | null;
+  /** The Draft 2 that belongs with this Draft 1 analysis: its analysed snapshot, or the current Draft 2 if not analysed yet */
+  revision?: { text: string; analysedAt: string | null; snapshot: boolean } | null;
 }
+
+const NOT_RECORDED = 'not recorded for this analysis';
+const yesNo = (v: boolean | null | undefined) => (v === true ? 'Yes' : v === false ? 'No' : 'Unknown (not recorded)');
+function supportLine(d: ExportFeedbackData): string {
+  const opened = d.supportUsed === true && typeof d.supportOpenedBeforeWriting === 'boolean' ? (d.supportOpenedBeforeWriting ? ', opened before writing' : ', opened after starting to write') : '';
+  return `${yesNo(d.supportUsed)}${opened}${d.supportLevel ? ` · level chosen: ${d.supportLevel}` : ''}`;
+}
+const analysedText = (d: ExportFeedbackData) => d.learnerText ?? '(The analysed text was not recorded for this earlier analysis. The current draft is not shown in its place.)';
 
 // AFM / metrics for PDF Helvetica
 const W_REG = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
@@ -125,9 +143,10 @@ export function generateFeedbackMarkdown(d: ExportFeedbackData): string {
     `**Target Word Count:** ${d.taskObjective}`,
     `**Date & Time:** ${d.createdAt} (${day(d.createdAt)})`,
     `**Draft Analysed:** ${d.draft === 'revised' ? 'Draft 2 (Revised)' : 'Draft 1 (Original)'} (${d.words} words)`,
-    `**Writing Support Used Before Submission:** ${d.supportUsed ? 'Yes' : 'No'}`,
-    `**Model:** ${d.model}`,
-    `**Prompt & Schema Version:** ${d.promptVersion}`,
+    `**Writing Support Used Before Submission:** ${supportLine(d)}`,
+    `**Model:** ${d.model || NOT_RECORDED}`,
+    `**Prompt & Schema Version:** ${d.promptVersion || NOT_RECORDED}`,
+    d.expectedRegister ? `**Expected Register:** ${d.expectedRegister}` : '',
     d.revisionExists ? `**Subsequent Revision:** Draft 2 exists in portfolio${d.revisionDate ? ` (${day(d.revisionDate)})` : ''}` : '',
     '',
     '---',
@@ -135,9 +154,10 @@ export function generateFeedbackMarkdown(d: ExportFeedbackData): string {
     d.taskPrompt,
     '',
     '---',
-    `## Learner Text (${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'})`,
-    d.learnerText,
+    `## Learner Text (${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'})${d.snapshot ? ' · exactly as analysed' : ''}`,
+    analysedText(d),
     '',
+    ...(d.revision ? ['---', `## Draft 2 ${d.revision.snapshot ? `· as analysed on ${day(d.revision.analysedAt)}` : '· current text, not analysed yet'}`, d.revision.text, ''] : []),
     '---',
     '## Diagnostic & Pedagogical Assessment',
     f.estimatedLevel ? `**Estimated Level:** ${f.estimatedLevel.level} — ${f.estimatedLevel.rationale}` : '',
@@ -229,7 +249,7 @@ export function generateFeedbackPdf(d: ExportFeedbackData): Buffer {
   doc.text('A MIND IN ENGLISH · MAIN WRITE AUDIT', { size: 8, bold: true, gray: 0.4, after: 3 });
   doc.text(`Unit ${d.unit}: ${d.unitTitle}`, { size: 18, bold: true, after: 2 });
   doc.text(`${d.taskKind} — "${d.taskTitle}" (${d.taskId})`, { size: 11, gray: 0.25, after: 4 });
-  doc.text(`${day(d.createdAt)} · ${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'} (${d.words} words) · Support used: ${d.supportUsed ? 'Yes' : 'No'} · Model: ${d.model}`, { size: 8.5, gray: 0.35, after: 4 });
+  doc.text(`${day(d.createdAt)} · ${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'} (${d.words} words) · Support used: ${supportLine(d)} · Model: ${d.model || NOT_RECORDED} · Prompt: ${d.promptVersion || NOT_RECORDED}`, { size: 8.5, gray: 0.35, after: 4 });
   if (d.revisionExists) {
     doc.text(`[Subsequent revision exists: Draft 2 in learner's portfolio${d.revisionDate ? ` on ${day(d.revisionDate)}` : ''}]`, { size: 8.5, bold: true, gray: 0.2, after: 4 });
   }
@@ -239,9 +259,14 @@ export function generateFeedbackPdf(d: ExportFeedbackData): Buffer {
   doc.text(d.taskPrompt, { size: 9, gray: 0.2, indent: 8, after: 4 });
   doc.rule(0.85);
 
-  doc.text(`Learner Text (${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'})`, { size: 11, bold: true, after: 2 });
-  doc.text(d.learnerText, { size: 8.5, gray: 0.15, indent: 8, after: 6 });
+  doc.text(`Learner Text (${d.draft === 'revised' ? 'Draft 2' : 'Draft 1'})${d.snapshot ? ' · exactly as analysed' : ''}`, { size: 11, bold: true, after: 2 });
+  doc.text(analysedText(d), { size: 8.5, gray: 0.15, indent: 8, after: 6 });
   doc.rule();
+  if (d.revision) {
+    doc.text(`Draft 2 ${d.revision.snapshot ? `· as analysed on ${day(d.revision.analysedAt)}` : '· current text, not analysed yet'}`, { size: 11, bold: true, after: 2 });
+    doc.text(d.revision.text, { size: 8.5, gray: 0.15, indent: 8, after: 6 });
+    doc.rule();
+  }
 
   if (f.estimatedLevel) {
     doc.text('Estimated Level', { size: 11, bold: true, after: 1 });

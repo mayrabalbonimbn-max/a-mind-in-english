@@ -274,7 +274,7 @@
     }
   });
 
-  K.units['32'].listening = [
+  K.units['32'].listening = K.pendingListening('32', [
     {
       id: '32l1',
       title: 'Dialogue: The Architecture of the Capstone',
@@ -347,9 +347,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['32'].speaking = {
+  K.units['32'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `Looking back over the thirty-two units of this course, what was the single most surprising or challenging concept you studied?`, guide: `Reflect on a specific unit topic (e.g., motivated numeracy, the Device Paradigm, the right to opacity, or the punctum) and why it changed your thinking.` },
       { q: `How has your confidence in speaking and writing spontaneously in English changed since Unit 01?`, guide: `Discuss the transition from mental translation to thinking directly in English and trusting your authorial voice.` },
@@ -377,5 +377,5 @@
       discourse: `Commanding, articulate, and deeply engaging spoken synthesis demonstrating complete intellectual sovereignty and authorial voice.`,
       vocabulary: `Flawless integration of high-level conceptual assets across all seven modules of the curriculum.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

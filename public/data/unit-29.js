@@ -273,7 +273,7 @@
     }
   });
 
-  K.units['29'].listening = [
+  K.units['29'].listening = K.pendingListening('29', [
     {
       id: '29l1',
       title: 'Dialogue: The Art of the Steelman',
@@ -346,9 +346,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['29'].speaking = {
+  K.units['29'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When someone passionately disagrees with you about an important topic, how do you keep the conversation calm and constructive?`, guide: `Discuss deep listening, asking clarifying questions, acknowledging valid points, and avoiding personal insults.` },
       { q: `Have you ever changed your mind about a major issue because someone explained their perspective with kindness and clarity?`, guide: `Describe the issue, the turning point of evidence or empathy, and how your thinking evolved.` },
@@ -376,5 +376,5 @@
       discourse: `Coherent, highly articulate debate architecture demonstrating profound cognitive empathy and principled rebuttal.`,
       vocabulary: `Effective use of terms such as 'steelmanning', 'strawman fallacy', 'Rapoport\'s rules', 'ideological Turing test', 'adversarial collaboration', and 'the paradox of tolerance'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

@@ -80,7 +80,7 @@ export const MainWriteFeedbackSchema = z.object({
   clarity: section.describe('Clarity: readability, precision of meaning, and avoidance of ambiguity.'),
   grammaticalAccuracyRange: section.describe('Grammatical control and range of complex structures, including unit grammar targets.'),
   lexicalPrecisionRange: section.describe('Lexical precision, range, collocations and idiomatic naturalness.'),
-  registerTone: section.describe('Register and tone: consistency with the genre and appropriate academic/analytical stance.'),
+  registerTone: section.describe('Register and tone: fit to the register this task calls for (see expected_register). Formality is not quality: a personal or reflective task is not better for sounding academic.'),
   hedgingStance: section.describe('Hedging and stance: epistemic calibration, cautious claims, avoidance of false certainty.'),
   cohesionPragmatics: section.describe('Cohesion and discourse pragmatics: logical flow, referencing, and reader management.'),
   unnecessaryRepetition: section.describe('Repetition of words, frames or ideas that could be condensed or varied.'),

@@ -490,7 +490,7 @@ describe('Scope guards', () => {
 
   it('adds no database migration', () => {
     expect(fs.readdirSync(path.join(root, 'prisma/migrations')).filter(d => d !== 'migration_lock.toml').sort())
-      .toEqual(['20260928193342_init', '20260929162142_add_user_is_demo', '20260930170000_learning_review']);
+      .toEqual(['20260928193342_init', '20260929162142_add_user_is_demo', '20260930170000_learning_review', '20261001120000_main_write_analyses']);
   });
 });
 

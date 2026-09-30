@@ -59,6 +59,7 @@ export function loadSyncClient(fetchImpl: FetchImpl, initialStorage: Record<stri
   vm.createContext(context);
   const conversationCode = fs.readFileSync(path.resolve(__dirname, '../../public/conversation-engine.js'), 'utf8');
   vm.runInContext(conversationCode, context);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname, '../../public/study-timer.js'), 'utf8'), context);
   const code = fs.readFileSync(path.resolve(__dirname, '../../public/sync.js'), 'utf8');
   vm.runInContext(code, context);
   return { api: window.KLANG_SYNC, storage, context, modals, fire: (ev: string) => (listeners[ev] || []).forEach((f) => f()) };

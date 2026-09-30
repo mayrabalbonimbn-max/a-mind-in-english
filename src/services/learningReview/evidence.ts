@@ -57,6 +57,8 @@ export interface EvidenceItem {
   production?: boolean;    // learner production (vs. recognition/record)
   positive?: boolean;      // positive counter-evidence / correct usage
   supportUsed?: boolean;   // true if hints/writing support was opened
+  // Writing Support facts, context only: the level is the learner's choice of scaffolding, not ability
+  support?: { level: string | null; used: boolean; openedBeforeWriting: boolean | null };
   afterFeedback?: boolean; // true if written after AI feedback
   opportunity?: OpportunityInfo;
 }
@@ -182,7 +184,14 @@ function fromAnswers(unit: string, answers: Record<string, any>): EvidenceItem[]
     const m = k.match(/^([A-Za-z0-9_-]+)(?::(why|intfb|lightfb|outline|explainq))?$/);
     if (m && idx.has(m[1])) {
       const a = idx.get(m[1])!, label = labelFor(a), suffix = m[2];
-      const supportUsed = !!(A(`${a.id}:support`) || A('support:open'));
+      const supRec = A(`${a.id}:support`), supChosen = A(`${a.id}:supportLevel`);
+      const supportUsed = !!(supRec || A('support:open'));
+      const recObj = supRec && typeof supRec === 'object' ? supRec : null;
+      const support = (supRec || supChosen) ? {
+        level: (typeof supChosen === 'string' ? supChosen : null) || (recObj && typeof recObj.level === 'string' ? recObj.level : null),
+        used: supportUsed,
+        openedBeforeWriting: recObj && typeof recObj.beforeWriting === 'boolean' ? recObj.beforeWriting : null,
+      } : undefined;
       const isRevision = a.stage === 'edit' || a.id.endsWith('r') || a.id.includes('revised');
 
       if (!suffix) {
@@ -193,7 +202,7 @@ function fromAnswers(unit: string, answers: Record<string, any>): EvidenceItem[]
           out.push({
             id: `ans:${unit}:${a.id}`, hash: sha(v), unit, stage: a.stage, activityId: a.id, activityLabel: label, origin: 'learner', provenance: prov, kind: writing ? 'writing_draft' : 'open_answer', at: null,
             task: a.q, text: writing ? `(${words} words; excerpt) ${clip(v, LIMITS.writing)}` : clip(v, LIMITS.answer), production: true,
-            supportUsed, afterFeedback: isRevision,
+            supportUsed, afterFeedback: isRevision, ...(support ? { support } : {}),
             opportunity: { count: 1, type: writing ? 'extended_writing' : 'cued_production' },
           });
         } else if (a.type === 'mc' || a.type === 'tf') {

@@ -273,7 +273,7 @@
     }
   });
 
-  K.units['26'].listening = [
+  K.units['26'].listening = K.pendingListening('26', [
     {
       id: '26l1',
       title: 'Dialogue: The Coffee Longevity Paradox',
@@ -346,9 +346,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['26'].speaking = {
+  K.units['26'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When you get sick with a common cold, what remedies do you usually take? How do you know whether the remedy cured you or if your body simply recovered naturally?`, guide: `Discuss spontaneous recovery, placebo effects, and the difficulty of isolating a single remedy's causal impact.` },
       { q: `Have you ever noticed a funny superstition that people believe brings good luck (e.g., wearing lucky socks for a football match)? Why do people believe it works?`, guide: `Explain how confirmation bias and accidental correlation reinforce superstitious causal beliefs.` },
@@ -376,5 +376,5 @@
       discourse: `Cohesive, disciplined argumentation separating correlation, confounding, reverse causality, and mechanistic proof.`,
       vocabulary: `Effective use of terms such as 'spurious correlation', 'Bradford Hill criteria', 'Ladder of Causation', 'dose-response relationship', and 'systems thinking'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

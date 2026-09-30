@@ -275,7 +275,7 @@
     }
   });
 
-  K.units['27'].listening = [
+  K.units['27'].listening = K.pendingListening('27', [
     {
       id: '27l1',
       title: 'Dialogue: The Motivated Numeracy Experiment',
@@ -348,9 +348,9 @@
         }
       ]
     }
-  ];
+  ]);
 
-  K.units['27'].speaking = {
+  K.units['27'].speaking = K.canonicalSpeaking({
     part1: [
       { q: `When someone presents evidence that proves you were wrong about a factual issue, how do you usually react emotionally?`, guide: `Discuss the initial prick of defensiveness versus the conscious discipline of updating your perspective.` },
       { q: `Why do you think political arguments on social media so rarely result in anyone changing their mind?`, guide: `Discuss performative identity, audience pressure, the soldier mindset, and identity-protective cognition.` },
@@ -378,5 +378,5 @@
       discourse: `Coherent, sophisticated argumentation distinguishing raw cognitive intelligence from emotional open-mindedness and epistemic virtue.`,
       vocabulary: `Effective use of terms such as 'identity-protective cognition', 'the smartness paradox', 'the scout mindset', 'motivated numeracy', and 'the information-deficit model'.`
     }
-  };
+  });
 })(window.KLANG = window.KLANG || {});

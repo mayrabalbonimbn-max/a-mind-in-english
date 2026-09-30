@@ -75,6 +75,8 @@
 
   /* ── Scope Mapping Helpers ────────────────────────── */
   const NAMED_SCOPES = ['glossary', 'language-bank', 'error-log', 'bookmarks', 'portfolio', 'speaking', 'current-affairs', 'progress', 'english-profile', 'study-timer', 'learning-judgments'];
+  // Written only by the server (POST /api/learning-review/judgments): read here, never uploaded
+  const SERVER_OWNED = new Set(['learning-judgments']);
 
   function keyToScope(key) {
     if (!key) return 'progress';
@@ -157,7 +159,6 @@
     };
     if (S.profile) docs['english-profile'] = S.profile;
     docs['study-timer'] = S.study || { activeSession: null, sessions: [] };
-    docs['learning-judgments'] = { judgments: S.learningJudgments || {} };
     if (S.conversations) Object.keys(S.conversations).forEach((id) => {
       if (S.conversations[id]) docs[`conversation:${id}`] = S.conversations[id];
     });
@@ -301,7 +302,8 @@
         if (data) S.profile = data;
         break;
       case 'study-timer':
-        if (data) S.study = data;
+        // Sessions are never dropped by a sync: both copies are merged (study-timer.js)
+        if (data) S.study = window.KLANG_STUDY ? window.KLANG_STUDY.merge(S.study, data) : data;
         break;
       case 'learning-judgments':
         if (data && data.judgments) S.learningJudgments = data.judgments;
@@ -484,6 +486,7 @@
     isSyncing = true;
     setStatus('syncing');
 
+    SERVER_OWNED.forEach((s) => pendingScopes.delete(s));
     const scopesToSync = Array.from(pendingScopes).filter((s) => !conflictScopes.has(s));
     let anyError = false;
     let anyConflict = false;
@@ -519,6 +522,10 @@
         // Conversations merge losslessly by immutable turn id; real conflicts stay visible in mergeState
         const merged = window.KLANG_CONVERSATIONS.merge(extractScopeData(appState, scope) || data, res.data.serverDoc.data);
         await resolveConflict(scope, merged, res.data.serverDoc.revision, 'conversation_merge');
+      } else if (res.status === 409 && res.data && res.data.serverDoc && scope === 'study-timer' && window.KLANG_STUDY) {
+        // Study sessions merge losslessly by session id (another device's heartbeat is not a conflict to ask about)
+        const merged = window.KLANG_STUDY.merge(extractScopeData(appState, scope) || data, res.data.serverDoc.data);
+        await resolveConflict(scope, merged, res.data.serverDoc.revision, 'study_merge');
       } else if (res.status === 409 && res.data && res.data.serverDoc) {
         // Concurrency conflict: local copy stays untouched and pending until the user decides
         anyConflict = true;
@@ -623,6 +630,7 @@
     // A pending scope is pushed with its baseRevision; if the server moved on, the
     // server answers 409 and the user chooses — nothing is replaced silently.
     let changed = false;
+    const changedKeys = [];
     remoteDocs.forEach((doc) => {
       if (pendingScopes.has(doc.key)) return;
 
@@ -640,6 +648,7 @@
         applyScopeData(appState, doc.key, doc.data);
         revisions[doc.key] = doc.revision;
         changed = true;
+        changedKeys.push(doc.key);
       }
     });
 
@@ -647,7 +656,7 @@
     if (onSaveLocal) onSaveLocal();
 
     if (changed && onRemoteUpdate) {
-      onRemoteUpdate();
+      onRemoteUpdate(changedKeys);
     }
 
     if (pendingScopes.size > 0) {
@@ -720,7 +729,7 @@
       revisions[doc.key] = doc.revision;
       saveSyncMeta();
       if (onSaveLocal) onSaveLocal();
-      if (onRemoteUpdate) onRemoteUpdate();
+      if (onRemoteUpdate) onRemoteUpdate([doc.key]);
       settleStatus();
     }
   }
@@ -749,7 +758,7 @@
     header.style.alignItems = 'center';
     header.style.gap = '10px';
     header.style.marginBottom = '12px';
-    header.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#D05353"></span><h3 style="margin:0">Sync Conflict Detected</h3>`;
+    header.innerHTML = `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:var(--error)"></span><h3 style="margin:0">Sync Conflict Detected</h3>`;
     box.appendChild(header);
 
     const desc1 = document.createElement('p');
@@ -983,6 +992,7 @@
     setStatus('syncing');
     const seqAtSend = editSeq[key] || 0;
     const isConversation = key.startsWith('conversation:') && !!window.KLANG_CONVERSATIONS;
+    const isStudy = key === 'study-timer' && !!window.KLANG_STUDY;
     const res = await apiFetch('/api/sync/resolve-conflict', {
       method: 'POST',
       body: {
@@ -993,6 +1003,9 @@
       },
     });
 
+    if (res.status === 409 && isStudy && res.data && res.data.serverDoc && attempt < 3) {
+      return resolveConflict(key, window.KLANG_STUDY.merge(resolvedData, res.data.serverDoc.data), res.data.serverDoc.revision, resolutionType, attempt + 1);
+    }
     if (res.status === 409 && isConversation && res.data && res.data.serverDoc && attempt < 3) {
       // Another device wrote again meanwhile: merge once more (lossless) instead of asking
       return resolveConflict(key, window.KLANG_CONVERSATIONS.merge(resolvedData, res.data.serverDoc.data), res.data.serverDoc.revision, resolutionType, attempt + 1);
@@ -1018,6 +1031,11 @@
       if ((editSeq[key] || 0) === seqAtSend) {
         applyScopeData(appState, key, resolvedData);
         pendingScopes.delete(key);
+      } else if (isStudy) {
+        // The timer ticked during resolution: keep the local heartbeat on top of the merged sessions
+        applyScopeData(appState, key, resolvedData);
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(syncPending, 800);
       } else if (isConversation) {
         // New turns were added during resolution: keep them on top of the merged history
         applyScopeData(appState, key, window.KLANG_CONVERSATIONS.merge(extractScopeData(appState, key) || resolvedData, resolvedData));

@@ -20,6 +20,7 @@ model User {
   conflicts    DocumentConflict[]
   learningReviewState LearningReviewState?
   learningReviewRuns  LearningReviewRun[]
+  mainWriteAnalyses   MainWriteAnalysis[]
 
   @@map("users")
 }
@@ -113,4 +114,32 @@ model LearningReviewRun {
 
   @@index([userId, startedAt])
   @@map("learning_review_runs")
+}
+
+/// One Main Write analysis exactly as it happened: the text that was sent (a snapshot, never the
+/// live draft), the model and prompt version actually used, the feedback, and what is known about
+/// Writing Support at submission (null = not known). Append-only: nothing updates or trims these rows.
+model MainWriteAnalysis {
+  id                         String   @id @default(uuid())
+  userId                     String
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit                       String
+  taskId                     String
+  baseTaskId                 String
+  draft                      String
+  text                       String
+  words                      Int
+  outline                    String?
+  model                      String
+  reasoning                  String?
+  promptVersion              String
+  expectedRegister           String?
+  feedback                   Json
+  supportLevel               String?
+  supportUsed                Boolean?
+  supportOpenedBeforeWriting Boolean?
+  createdAt                  DateTime @default(now())
+
+  @@index([userId, unit, baseTaskId, createdAt])
+  @@map("main_write_analyses")
 }

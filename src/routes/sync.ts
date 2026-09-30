@@ -26,7 +26,7 @@ function getSenderId(req: Request): string | undefined {
   return req.session?.id;
 }
 
-const documentKeyPattern = /^(unit:\d{2}|review:[1-7]|conversation:[A-Za-z0-9_-]{8,96}|glossary|language-bank|error-log|bookmarks|portfolio|speaking|current-affairs|progress|english-profile)$/;
+const documentKeyPattern = /^(unit:\d{2}|review:[1-7]|conversation:[A-Za-z0-9_-]{8,96}|glossary|language-bank|error-log|bookmarks|portfolio|speaking|current-affairs|progress|english-profile|study-timer)$/;
 
 /** Conversation documents are validated and append-only on the server (turns, trace, frozen end/review). */
 async function conversationRejection(userId: string, key: string, data: unknown, baseRevision: number | null | undefined): Promise<string[]> {

@@ -2,7 +2,7 @@ import type { EvidenceItem } from './evidence';
 import type { PatternState } from './merge';
 import type { ActivityInfo } from './evidence';
 
-export const PROMPT_VERSION = 'learning-review-v1';
+export const PROMPT_VERSION = 'learning-review-v2';
 
 export const LEARNING_REVIEW_SYSTEM = `You observe the learning of one adult learner of English (target B2+ → C1) who studies "A Mind in English", a course of long readings, reasoning tasks and writing.
 You receive only NEW evidence since the last review, a small summary of patterns found in earlier reviews, and (sometimes) the activities of the next unit the learner has not started.
@@ -30,7 +30,8 @@ Pedagogical Rules:
 8. proposals: only when NEXT UNIT CANDIDATES are given, and only for a difficulty supported by several pieces of learner evidence in at least two activities. Prefer adapt or replace; keep the activity's original objective and workload; no new grammar; never write the new activity, never include an answer. Zero proposals is often right.
 9. No CEFR levels, no scores, no percentages.
 10. If a section has no evidence, return an empty array. Never fill a section to make the review look complete.
-11. Quote the learner's words only in short fragments. Write in English, addressing the learner as "you".`;
+11. Quote the learner's words only in short fragments. Write in English, addressing the learner as "you".
+12. "support:" on an item is context, not a measure. The level (high / medium / light / off) is how much language scaffolding the learner CHOSE to have available for that task; a harder task can justify more. Never conclude that a high level means weak ability or that off means strong ability, and never suggest a level as a verdict. You may describe observed habits across several tasks (for example, starting independently and opening support only after drafting), citing the items.`;
 
 const PROVENANCE_LABEL: Record<string, string> = {
   independent: 'INDEPENDENT WORK',
@@ -49,8 +50,9 @@ export function evidenceLine(ref: string, e: EvidenceItem, refOf: (id: string) =
   const date = e.at ? ` | ${e.at.slice(0, 10)}` : '';
   const link = e.linkedTo && refOf(e.linkedTo) ? ` | assesses ${refOf(e.linkedTo)}` : '';
   const opp = e.opportunity ? ` | opp: ${e.opportunity.count} (${e.opportunity.type})` : '';
+  const sup = e.support ? ` | support: ${e.support.level ? `level ${e.support.level} chosen, ` : ''}${e.support.used ? `opened${e.support.openedBeforeWriting === true ? ' before writing' : e.support.openedBeforeWriting === false ? ' after starting to write' : ''}` : 'not opened'}` : '';
   const prov = PROVENANCE_LABEL[e.provenance] || e.provenance.toUpperCase();
-  return `${ref} | ${prov} · ${e.kind.replace(/_/g, ' ')} | ${e.activityLabel}${date}${link}${opp}${e.task ? ` | task: "${e.task}"` : ''}\n    ${e.text}`;
+  return `${ref} | ${prov} · ${e.kind.replace(/_/g, ' ')} | ${e.activityLabel}${date}${link}${opp}${sup}${e.task ? ` | task: "${e.task}"` : ''}\n    ${e.text}`;
 }
 
 export function buildLearningReviewPrompt(input: {

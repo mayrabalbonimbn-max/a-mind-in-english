@@ -13,6 +13,8 @@ export default defineConfig({
       AI_API_KEY: '',
       OPENAI_API_KEY: '',
       AI_MODEL: '',
+      // The designed (Chromium) PDF has its own test; everything else checks the plain fallback
+      PDF_ENGINE: 'plain',
     },
     fileParallelism: false,
     maxWorkers: 1,

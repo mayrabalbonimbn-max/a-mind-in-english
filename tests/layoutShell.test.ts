@@ -11,8 +11,18 @@ function rule(selector: string, source = css): string {
 }
 
 describe('structural shell layout', () => {
+  it('phone top bar: logo, timer and menu never shrink; only the sync label wraps; menu keeps its name', () => {
+    const phone = css.slice(css.indexOf('/* Phones: logo, Study Timer, sync status and menu share one row.'));
+    expect(phone).toMatch(/\.topbar-timer\{margin-right:0;flex:none\}/);
+    expect(phone).toMatch(/\.topbar \[data-act="menu"\]\{flex:none;/);
+    expect(phone).toMatch(/#topbar-sync\{margin-right:0;min-width:0;flex:0 1 auto\}/);
+    expect(phone).toMatch(/@media \(max-width:360px\)\{\s*\.topbar \[data-act="menu"\]\{font-size:0;gap:0;padding:11px 11px\}/);
+    const app = fs.readFileSync(path.resolve(__dirname, '../public/app.js'), 'utf8');
+    expect(app).toMatch(/<button data-act="menu" aria-label="Open navigation">/);
+  });
+
   it('cache-busts the stylesheet so existing PWA sessions receive layout fixes', () => {
-    expect(html).toContain('styles.css?v=20260930-maintenance-1');
+    expect(html).toContain('styles.css?v=20261001-mind-2');
   });
 
   it('keeps desktop grid ownership separate from mobile overflow containment', () => {
